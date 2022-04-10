@@ -12,6 +12,11 @@ Have your players saying:
 
 Join us on [nengi's Discord server](https://discord.gg/7kAa7NJ) or help support development on [timetocode's Patreon](https://www.patreon.com/timetocode)
 
+## Currently compatible with node 14; will not work with node 15+
+This is a stable branch of nengi, the very same that has a several millions of gameplays on it. It however relies on a websocket library that has no support past node 14 (cWS.js).
+
+## Node 16 support (NEW, also may not work with node 17)
+There is an experimental branch called 'sixteen' which uses uWS.js for its websocket layer. The previously used library (cWS.js) was itself a fork of an earlier version of uWS.js. The nengi api remains unchanged EXCEPT: bots don't work (yet) and the SSL syntax has changed (see uWS.js docs for new ssl syntax). There's no particular reason to think that this branch of nengi is less stable, but it is being kept separate until more users have tested it and bot support has been added (which will have to come through an addtional websocket library, likely the one simply named "ws"). If you are using this branch please share your experiences on the nengi discord server. It has been noted by the creator of uWS.js that they will only support major node versions (14, 16, 18, etc) so the same can be said for this branch of nengi.
 ## Features
 * Authoritative Server Model (anti-cheat)
 * Binary compression
@@ -33,7 +38,9 @@ Join us on [nengi's Discord server](https://discord.gg/7kAa7NJ) or help support 
 
 ## Templates
 
-There is now a tutorial series for those learning nengi available at [https://timetocode.com/nengi/intro-1](https://timetocode.com/nengi/intro-1). The code contained in these tutorials is pretty nice -- if you're making a 2D game in nengi without csp then forking this code makes for a great template.
+Please note that these templates have not been updated recently, and while they should all work you may want to bump the nengi version to latest after checking them out.
+
+There is a tutorial series for those learning nengi available at [https://timetocode.com/nengi/intro-1](https://timetocode.com/nengi/intro-1). The code contained in these tutorials is pretty nice -- if you're making a 2D game in nengi without csp then forking this code makes for a great template.
 
 Other templates:
 

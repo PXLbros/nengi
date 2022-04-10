@@ -25,19 +25,11 @@ import NoInterpsMessage from '../common/NoInterpsMessage'
 import Sleep from './Sleep'
 
 import BasicSpace from './BasicSpace'
-import { EventEmitter } from 'events'
+import { EventEmitter } from 'eventemitter3'
 import Channel from './Channel'
 
 //const Components = require('./Components')
-const defaults = {
-    USE_HISTORIAN: true,
-    HISTORIAN_TICKS: 40,
-    ID_PROPERTY_NAME: 'nid',
-    ID_BINARY_TYPE: BinaryType.UInt16,
-    TYPE_PROPERTY_NAME: 'ntype',
-    TYPE_BINARY_TYPE: BinaryType.UInt8,
-    DIMENSIONALITY: 2
-}
+import defaults from '../defaults'
 
 let protocols = null
 
@@ -296,13 +288,13 @@ class Instance extends EventEmitter {
             // and the game logic choosing to accept the connection, so the game logic at this very moment
             // is probably running asynchronous code in an instance.on('connect', () => {}) block
             // We need to tell the game to disconnect this client.
-            this.pendingClients.delete(client.connection)
-
-            client.instance = null
-            
-            client.connection.close()
-            if (typeof this.disconnectCallback === 'function') {
-                this.disconnectCallback(client, null)
+            if (this.pendingClients.has(client.connection)) {
+                this.pendingClients.delete(client.connection)
+                client.instance = null
+                client.connection.close()
+                if (typeof this.disconnectCallback === 'function') {
+                    this.disconnectCallback(client, null)
+                }
             }
         }
         return client
@@ -653,11 +645,13 @@ class Instance extends EventEmitter {
             avgLatency = 0
         }
 
+        var pingKey = (tick % this.config.PING_PONG_TICK_INTERVAL === 0) ? client.latencyRecord.generatePingKey() : -1
+
         var snapshot = {
             tick: tick,
             clientTick: client.lastProcessedClientTick,
 
-            pingKey: client.latencyRecord.generatePingKey(),
+            pingKey: pingKey, //client.latencyRecord.generatePingKey(),
             avgLatency: avgLatency,
             timestamp: timestamp,
             transferKey: client.transferKey,

@@ -9,11 +9,21 @@ import Interpolator from './Interpolator'
 import createPongBuffer from '../snapshot/writer/createPongBuffer'
 import Chronus from './Chronus'
 import Predictor from './Predictor'
-import { EventEmitter } from 'events'
-
+import { EventEmitter } from 'eventemitter3'
+import defaults from '../defaults'
 class Client extends EventEmitter {
     constructor(config, interpDelay) {
 		super()
+                /* defaults */
+                if (!config) {
+                    throw new Error('Instance requries a nengiConfig')
+                } else {
+                    for (let prop in defaults) {
+                        if (typeof (config[prop]) === 'undefined') {
+                            config[prop] = defaults[prop]
+                        }
+                    }
+                }
         this.config = config
         this.protocols = new ProtocolMap(config, metaConfig)
 
