@@ -1,16 +1,24 @@
-import { EventEmitter } from 'events'
+import { EventEmitter } from 'eventemitter3'
 
 const connectionMocker = () => {
-    const createSockets = () =>{
+    const createSockets = () => {
         const serverSocket = new EventEmitter()
         const clientSocket = new EventEmitter()
-        serverSocket.readyState = 1
-        serverSocket.send = (buffer) => {
+
+        // For uWebSockets.js compatibility
+        serverSocket._nengiOpen = true
+
+        serverSocket.send = (buffer, isBinary) => {
             clientSocket.emit('message', buffer)
         }
 
         clientSocket.send = (buffer) => {
             serverSocket.emit('message', buffer)
+        }
+
+        clientSocket.close = () => {
+            serverSocket._nengiOpen = false
+            serverSocket.emit('close', { code: 1000, reason: '' })
         }
 
         return { serverSocket, clientSocket }

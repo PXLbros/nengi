@@ -1,15 +1,8 @@
-
-require = require("esm")(module/*, options*/)
-var proxify = require('../core/protocol/proxify').default
-var deproxify = require('../core/protocol/deproxify').default
-var copyProxy = require('../core/protocol/copyProxy').default
-const Protocol = require('../core/protocol/Protocol').default
-var nengi = require('..').default
-
-//import proxify from '../core/protocol/proxify'
-//import deproxify from '../core/protocol/deproxify'
-//import copyProxy from '../core/protocol/copyProxy'
-//import nengi from '../index'
+import proxify from '../core/protocol/proxify.js'
+import deproxify from '../core/protocol/deproxify.js'
+import copyProxy from '../core/protocol/copyProxy.js'
+import Protocol from '../core/protocol/Protocol.js'
+import nengi from '../index.js'
 
 const config = {
     ID_BINARY_TYPE: nengi.UInt16,

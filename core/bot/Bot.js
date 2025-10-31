@@ -1,18 +1,15 @@
-import ProtocolMap from '../protocol/ProtocolMap';
-import metaConfig from '../common/metaConfig';
-import createHandshakeBuffer from '../snapshot/writer/createHandshakeBuffer';
-import readSnapshotBuffer from '../snapshot/reader/readSnapshotBuffer';
-import EntityCache from '../instance/EntityCache';
-import WorldState from '../client//WorldState';
-import Interpolator from '../client//Interpolator';
-import createPongBuffer from '../snapshot/writer/createPongBuffer';
-import Chronus from '../client/Chronus';
-import Outbound from '../client/Outbound';
-import { EventEmitter } from 'events'
-
-//const W3CWebSocket = require('websocket').w3cwebsocket
-//const WebSocket = require('ws')
-import { WebSocket } from '@clusterws/cws';
+import ProtocolMap from '../protocol/ProtocolMap.js'
+import metaConfig from '../common/metaConfig.js'
+import createHandshakeBuffer from '../snapshot/writer/createHandshakeBuffer.js'
+import readSnapshotBuffer from '../snapshot/reader/readSnapshotBuffer.js'
+import EntityCache from '../instance/EntityCache.js'
+import WorldState from '../client/WorldState.js'
+import Interpolator from '../client/Interpolator.js'
+import createPongBuffer from '../snapshot/writer/createPongBuffer.js'
+import Chronus from '../client/Chronus.js'
+import Outbound from '../client/Outbound.js'
+import { EventEmitter } from 'eventemitter3'
+import WebSocket from 'ws'
 
 class Bot extends EventEmitter {
     constructor(config, protocols) {
@@ -94,15 +91,14 @@ class Bot extends EventEmitter {
     }
 
     connect(address, handshake) {
-        this.websocket = new WebSocket(address) //, 'nengi-protocol')
+        this.websocket = new WebSocket(address, { perMessageDeflate: false })
         this.outbound.websocket = this.websocket
-        this.websocket.binaryType = 'arraybuffer'
 
         if (typeof handshake === 'undefined' || !handshake) {
             handshake = {}
         }
 
-        this.websocket.on('open', (event) => {
+        this.websocket.on('open', () => {
             this.websocket.send(createHandshakeBuffer(handshake).byteArray)
         })
 
@@ -116,21 +112,27 @@ class Bot extends EventEmitter {
             }
         })
 
-        this.websocket.on('message', message => {
-            this.handleMessage(message)
+        this.websocket.on('message', (message) => {
+            // ws sends Buffer directly, convert to ArrayBuffer-like structure
+            if (Buffer.isBuffer(message)) {
+                // Create a copy as ArrayBuffer for compatibility
+                const arrayBuffer = message.buffer.slice(message.byteOffset, message.byteOffset + message.byteLength)
+                this.handleMessage(arrayBuffer)
+            } else {
+                this.handleMessage(message)
+            }
         })
     }
 
     mockConnect(mockSocket, handshake) {
         this.websocket = mockSocket
         this.outbound.websocket = this.websocket
-        this.websocket.binaryType = 'arraybuffer'
 
         if (typeof handshake === 'undefined' || !handshake) {
             handshake = {}
         }
 
-        this.websocket.on('open', (event) => {
+        this.websocket.on('open', () => {
             this.websocket.send(createHandshakeBuffer(handshake).byteArray)
         })
 

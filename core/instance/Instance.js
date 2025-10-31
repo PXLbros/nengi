@@ -1,35 +1,26 @@
-import { WebSocketServer } from '@clusterws/cws'
-import EDictionary from '../../external/EDictionary'
-import Historian from './Historian'
-import IdPool from './IdPool'
-import proxify from '../protocol/proxify'
-import compare from '../protocol/compare'
-import copyProxy from '../protocol/copyProxy'
-import Binary from '../binary/Binary'
-import BinaryType from '../binary/BinaryType'
-import formatUpdates from '../snapshot/entityUpdate/formatUpdates'
-import chooseOptimization from '../snapshot/entityUpdate/chooseOptimization'
-import ProtocolMap from '../protocol/ProtocolMap'
-import Client from './Client'
-import createSnapshotBuffer from '../snapshot/writer/createSnapshotBuffer'
-import readCommandBuffer from '../snapshot/reader/readCommandBuffer'
-import createConnectionResponseBuffer from '../snapshot/writer/createConnectionResponseBuffer'
-import createTransferClientBuffer from '../snapshot/writer/createTransferClientBuffer'
-import createTransferRequestBuffer from '../snapshot/writer/createTransferRequestBuffer'
-import createTransferResponseBuffer from '../snapshot/writer/createTransferResponseBuffer'
-import createHandshakeBuffer from '../snapshot/writer/createHandshakeBuffer'
+import uWS from 'uwebsockets.js'
+import EDictionary from '../../external/EDictionary.js'
+import Historian from './Historian.js'
+import IdPool from './IdPool.js'
+import proxify from '../protocol/proxify.js'
+import chooseOptimization from '../snapshot/entityUpdate/chooseOptimization.js'
+import ProtocolMap from '../protocol/ProtocolMap.js'
+import Client from './Client.js'
+import createSnapshotBuffer from '../snapshot/writer/createSnapshotBuffer.js'
+import readCommandBuffer from '../snapshot/reader/readCommandBuffer.js'
+import createConnectionResponseBuffer from '../snapshot/writer/createConnectionResponseBuffer.js'
+import createHandshakeBuffer from '../snapshot/writer/createHandshakeBuffer.js'
 
-import consoleLogLogo from '../common/consoleLogLogo'
-import metaConfig from '../common/metaConfig'
-import NoInterpsMessage from '../common/NoInterpsMessage'
-import Sleep from './Sleep'
+import consoleLogLogo from '../common/consoleLogLogo.js'
+import metaConfig from '../common/metaConfig.js'
+import NoInterpsMessage from '../common/NoInterpsMessage.js'
+import Sleep from './Sleep.js'
 
-import BasicSpace from './BasicSpace'
+import BasicSpace from './BasicSpace.js'
 import { EventEmitter } from 'eventemitter3'
-import Channel from './Channel'
+import Channel from './Channel.js'
 
-//const Components = require('./Components')
-import defaults from '../defaults'
+import defaults from '../defaults.js'
 
 let protocols = null
 
@@ -78,8 +69,6 @@ class Instance extends EventEmitter {
         this.localEvents = []
         this.proxyCache = {}
 
-        //this.components = new Components(this)
-
         this.historian = new Historian(config.UPDATE_RATE, config.HISTORIAN_TICKS, config.ID_PROPERTY_NAME, config.DIMENSIONALITY)
         // if no history
         this.basicSpace = new BasicSpace(config.ID_PROPERTY_NAME, config.DIMENSIONALITY)
@@ -107,32 +96,58 @@ class Instance extends EventEmitter {
         }
 
         if (typeof webConfig.port !== 'undefined') {
-            this.wsServer = new WebSocketServer({ port: webConfig.port }, () => {
-                //console.log(this.wsServer)
+            // Using uWebSockets.js with standalone port
+            const uwsOptions = webConfig.uwsConfig || {}
+            const wsOptions = webConfig.wsConfig || {}
+
+            this.wsServer = uWS.App(uwsOptions)
+
+            this.wsServer.ws('/nengi', {
+                ...wsOptions,
+                open: (ws) => {
+                    ws._nengiOpen = true
+                    const client = this.connect(ws)
+                    ws._nengiClient = client
+                },
+                message: (ws, message, isBinary) => {
+                    const client = ws._nengiClient
+                    if (client) {
+                        // Convert ArrayBuffer to Buffer
+                        const buffer = Buffer.from(message)
+                        this.onMessage(buffer, client)
+                    }
+                },
+                close: (ws, code, message) => {
+                    const client = ws._nengiClient
+                    if (client) {
+                        ws._nengiOpen = false
+                        this.disconnect(client, { code, reason: Buffer.from(message).toString() })
+                    }
+                },
+                drain: (ws) => {
+                    // Handle backpressure if needed
+                },
+            })
+
+            this.wsServer.listen(webConfig.port, (listenSocket) => {
+                if (listenSocket) {
+                    console.log(`uWebSockets.js server listening on port ${webConfig.port}`)
+                } else {
+                    throw new Error(`Failed to listen on port ${webConfig.port}`)
+                }
             })
         } else if (typeof webConfig.httpServer !== 'undefined') {
-            this.wsServer = new WebSocketServer({ server: webConfig.httpServer })
+            // Note: uWebSockets.js doesn't directly support attaching to existing HTTP servers
+            // You would need to use uWS.App().listen() separately or use a different approach
+            // For now, throwing an error to document this limitation
+            throw new Error('uWebSockets.js does not support attaching to existing HTTP servers. ' +
+                'Please use webConfig.port instead, or consider using uWS.SSLApp() for HTTPS.')
         } else if (typeof webConfig.mock !== 'undefined') {
             // using a connectionless mock mode, see spec folder for interface
             this.wsServer = webConfig.mock
         } else {
             throw new Error('Instance must be passed a config that contains a port or an http server.')
         }
-
-        this.wsServer.on('connection', (ws, req) => {
-            var client = this.connect(ws)
-            ws.on('message', message => {
-                this.onMessage(message, client)
-            })
-
-            ws.on('close', (event) => {
-                this.disconnect(client, event)
-            })
-        })
-
-        this.wsServer.on('error', err => {
-            console.error(err)
-        });
     }
 
     noInterp(id) {
@@ -161,13 +176,11 @@ class Instance extends EventEmitter {
 
     onMessage(message, client) {
         try {
-            //console.log('message', message)
             var commandMessage = readCommandBuffer(message, this.protocols, this.config)
         } catch (err) {
             if (err) {
                 console.log('onMessage error, disconnecting client', err)
                 this.disconnect(client)
-                //console.log(err.stack)
                 this.pendingClients.delete(client.connection)
             }
             return
@@ -212,7 +225,6 @@ class Instance extends EventEmitter {
 
     getNextCommand() {
         var cmd = this.commands.shift()
-        //console.log(cmd)
         if (cmd && cmd.client.lastProcessedClientTick < cmd.tick) {
             cmd.client.lastProcessedClientTick = cmd.tick
         }
@@ -224,16 +236,16 @@ class Instance extends EventEmitter {
     }
 
     acceptConnection(client, text) {
-        if (client.connection.readyState === 1) {
+        if (client.connection._nengiOpen === true) {
             this.pendingClients.delete(client.connection)
             this.addClient(client)
             client.accepted = true
-    
+
             var bitBuffer = createConnectionResponseBuffer(true, text)
             var buffer = bitBuffer.toBuffer()
 
-            if (client.connection.readyState === 1) {
-                client.connection.send(buffer, { binary: true })
+            if (client.connection._nengiOpen === true) {
+                client.connection.send(buffer, true)
             }
         } else {
             // This client appears to have disconnected INBETWEEN the websocket connection forming
@@ -243,7 +255,7 @@ class Instance extends EventEmitter {
             this.pendingClients.delete(client.connection)
 
             client.instance = null
-            
+
             client.connection.close()
             if (typeof this.disconnectCallback === 'function') {
                 this.disconnectCallback(client, null)
@@ -257,8 +269,8 @@ class Instance extends EventEmitter {
         var bitBuffer = createConnectionResponseBuffer(false, text)
         var buffer = bitBuffer.toBuffer()
 
-        if (client.connection.readyState === 1) {
-            client.connection.send(buffer, { binary: true })
+        if (client.connection._nengiOpen === true) {
+            client.connection.send(buffer, true)
             client.connection.close()
         }
     }
@@ -278,7 +290,7 @@ class Instance extends EventEmitter {
         if (this.clients.get(client.id)) {
             this.clients.remove(client)
             client.instance = null
-            
+
             if (typeof this.disconnectCallback === 'function') {
                 this.disconnectCallback(client, event)
             }
@@ -322,7 +334,6 @@ class Instance extends EventEmitter {
     }
 
     registerEntity(entity, sourceId) {
-        // const id = this.entityIdPool.nextId()
         let nid = entity[this.config.ID_PROPERTY_NAME]
         if (!this.sources.has(nid)) {
             nid = this.entityIdPool.nextId()
@@ -333,8 +344,6 @@ class Instance extends EventEmitter {
         }
         const entitySources = this.sources.get(nid)
         entitySources.add(sourceId)
-        //console.log('registered source', sourceId, nid)
-        //console.log('sources', this.sources)
         return nid
     }
 
@@ -342,14 +351,12 @@ class Instance extends EventEmitter {
         const nid = entity[this.config.ID_PROPERTY_NAME]
         const entitySources = this.sources.get(nid)
         entitySources.delete(sourceId)
-        //console.log('unregistering source', sourceId, nid)
 
         if (entitySources.size === 0) {
             this.sources.delete(nid)
             this._entities.remove(entity)
             this.entityIdPool.queueReturnId(nid)
             entity[this.config.ID_PROPERTY_NAME] = -1
-            //console.log('entity is fully unregistered now')
         }
     }
 
@@ -428,26 +435,6 @@ class Instance extends EventEmitter {
     }
 
     message(message, clientOrClients) {
-        /*
-        const recurse = (message) => {
-            console.log('recurse', message.protocol)
-            message[this.config.TYPE_PROPERTY_NAME] = this.protocols.getIndex(message.protocol)
-
-            const properties = Object.keys(message.protocol.properties)
-            properties.forEach(prop => {
-                console.log('********', prop, message.protocol.properties[prop])
-            })
-        }
-        //recurse(message)
-
-        if (message.outers) {
-            //console.log('>>>>>', message.protocol, message.outers[0].protocol, message.outers[0].inners[0].protocol)
-
-            //message.outers[0].protocol
-            //message.outers[0].protocol.properties.inners.protocol = message.outers[0].protocol.inners.prototype.protocol 
-        }
-        */
-
         if (!message.protocol) {
             throw new Error('Object is missing a protocol or protocol was not supplied via config.')
         }
@@ -492,8 +479,6 @@ class Instance extends EventEmitter {
             this.proxyCache[tick].entities[entity.id] = proxy
 
             if (this.proxyCache[tick - 1]) {
-
-                //console.log('here')
                 var proxyOld = this.proxyCache[tick - 1].entities[entity.id]
                 if (proxyOld) {
                     proxy.diff = chooseOptimization(
@@ -521,21 +506,13 @@ class Instance extends EventEmitter {
         if (proxy && proxy.diffTick === tick) {
             return proxy
         }
-        //let old = client.entityCache.getEntity(entity.id)
-        //console.log('found old', old)
-        //if (old) {
+
         if (isDiff) {
             let proxyOld
             if (this.proxyCache[client.entityCache.lastTick]) {
                 proxyOld = this.proxyCache[client.entityCache.lastTick].entities[entity[this.config.ID_PROPERTY_NAME]]
-                //console.log('found old proxy')
-            } else {
-                //console.log('old')
-                //proxyOld = proxify(old, entity.protocol)
-                //this.proxyCache[tick].entities[entity.id] = proxyOld
-                //console.log('had to reproxify an old object')
             }
-            //var proxyOld = this.proxyCache[old._nTick].entities[entity.id]//proxify(old, entity.protocol)
+
             if (proxyOld) {
                 this.debugCount++
                 proxy.diff = chooseOptimization(
@@ -553,33 +530,15 @@ class Instance extends EventEmitter {
             }
         }
 
-        // }
-        //console.log('hey', proxy)
         return proxy
     }
 
     update() {
-        //console.log('sources', this.sources)
-        /*
-        console.log(
-            'entsA', this.entities.toArray().length, 
-            'entsB', this._entities.toArray().length, 
-            'clients', this.clients.toArray().length,
-            'channels', this.channels.toArray().length
-        )
-        */
-        
-
-
-        //console.log(this.entities.toArray())
         if (this.config.USE_HISTORIAN) {
             this.historian.record(this.tick, this.entities.toArray(), this.localEvents)
         }
 
         this.localEvents = []
-
-
-        //this.components.process()
 
         var spatialStructure = (this.config.USE_HISTORIAN) ? this.historian.getCurrentState() : this.basicSpace
 
@@ -593,22 +552,20 @@ class Instance extends EventEmitter {
             var bitBuffer = createSnapshotBuffer(snapshot, this.config)
             var buffer = bitBuffer.toBuffer()
 
-            if (client.connection.readyState === 1) {
-                client.connection.send(buffer, { binary: true })
+            if (client.connection._nengiOpen === true) {
+                client.connection.send(buffer, true)
                 client.saveSnapshot(snapshot, this.protocols, this.tick)
             }
         }
 
         delete this.proxyCache[this.tick - 20]
 
-        //this.components.clear()
         this.noInterps = []
         this.deleteEntities = []
         this.createEntities = []
         this.entityIdPool.update()
         this.tick++
 
-        //console.log('debug count', this.debugCount)
         this.debugCount = 0
 
         if (!this.config.USE_HISTORIAN) {
@@ -617,7 +574,6 @@ class Instance extends EventEmitter {
     }
 
     createSnapshot(tick, client, spatialStructure, now) {
-        //console.log('CREATE SNAPSHOT')
         if (typeof this.proxyCache[tick] === 'undefined') {
             this.proxyCache[tick] = {
                 entities: {},
@@ -627,7 +583,6 @@ class Instance extends EventEmitter {
         var now = Date.now()
 
         // when timestamp is -1, no timesync is sent to the client
-        //console.log(tick, tick % 100)
         var timestamp = (tick % this.config.UPDATE_RATE === 0) ? now : -1
 
         if (client.lastReceivedTick === -1) {
@@ -635,10 +590,7 @@ class Instance extends EventEmitter {
         }
         client.lastReceivedTick = tick
 
-
-        //console.log('createSnapshot timestamp', timestamp)
         var avgLatency = Math.round(client.latencyRecord.averageLatency)
-        //console.log('########', avgLatency)
         if (avgLatency > 999) {
             avgLatency = 999
         } else if (avgLatency < 0) {
@@ -651,7 +603,7 @@ class Instance extends EventEmitter {
             tick: tick,
             clientTick: client.lastProcessedClientTick,
 
-            pingKey: pingKey, //client.latencyRecord.generatePingKey(),
+            pingKey: pingKey,
             avgLatency: avgLatency,
             timestamp: timestamp,
             transferKey: client.transferKey,
@@ -668,8 +620,6 @@ class Instance extends EventEmitter {
                 optimized: []
             }
         }
-
-        //this.components.snapshotDecorate(snapshot)
 
         if (client.transferKey !== -1) {
             client.transferKey = -1
@@ -694,22 +644,15 @@ class Instance extends EventEmitter {
             let entity = this.getEntity(id)
             let proxy = this.proxifyOrGetCachedProxyPerClient(client, entity, tick, false)
             proxy.protocol = entity.protocol
-            //Object.freeze(proxy)
             snapshot.createEntities.push(proxy)
-
-            //this.components.snapshotCreateEntity(entity, snapshot, tick)
         }
 
         var tempNoInterps = []
         for (var i = 0; i < vision.stillVisible.length; i++) {
             let id = vision.stillVisible[i]
-            // console.log('doing id', id)
             let entity = this.getEntity(id)
             if (this.sleepManager.isAwake(entity[this.config.ID_PROPERTY_NAME])) {
                 let proxy = this.proxifyOrGetCachedProxyPerClient(client, entity, tick, true)
-                //console.log(proxy)
-
-                //var proxyOld = client.entityCache.getEntity(id)
 
                 let formattedUpdates = proxy.diff
 
@@ -720,8 +663,6 @@ class Instance extends EventEmitter {
             } else {
                 this.proxifyOrGetCachedProxyPerClient(client, entity, tick, false)
             }
-
-            //this.components.snapshotUpdateEntity(entity, snapshot, tick)
 
             if (this.noInterps.indexOf(id) !== -1) {
                 tempNoInterps.push(id)
@@ -738,14 +679,11 @@ class Instance extends EventEmitter {
         for (var i = 0; i < vision.noLongerVisible.length; i++) {
             snapshot.deleteEntities.push(vision.noLongerVisible[i])
             let entity = this.getEntity(vision.noLongerVisible[i])
-            //this.components.snapshotDeleteEntity(entity, snapshot)
         }
-        // TODO alias 
 
         snapshot.localEvents = vision.events
-        //console.log('snapshot', snapshot)
         return snapshot
     }
 }
 
-export default Instance;
+export default Instance

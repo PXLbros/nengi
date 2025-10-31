@@ -1,4 +1,4 @@
-import BinaryType from './binary/BinaryType'
+import BinaryType from './binary/BinaryType.js'
 
 const defaults = {
     USE_HISTORIAN: true,

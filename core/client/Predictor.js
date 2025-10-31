@@ -1,6 +1,6 @@
-import proxify from '../protocol/proxify';
-import Binary from '../binary/Binary'
-import BinaryType from '../binary/BinaryType'
+import proxify from '../protocol/proxify.js';
+import Binary from '../binary/Binary.js'
+import BinaryType from '../binary/BinaryType.js'
 
 
 const closeEnough = (value, EPSILON) => {

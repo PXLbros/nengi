@@ -1,6 +1,6 @@
-import BinaryType from '../../binary/BinaryType';
-import Binary from '../../binary/Binary';
-import countJSONBits from '../../protocol/countBits/countJSONBits';
+import BinaryType from '../../binary/BinaryType.js';
+import Binary from '../../binary/Binary.js';
+import countJSONBits from '../../protocol/countBits/countJSONBits.js';
 
 function countAllJSONBits(total, json) {
     return total + countJSONBits(json)

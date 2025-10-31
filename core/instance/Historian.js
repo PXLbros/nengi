@@ -1,5 +1,5 @@
-import SpatialStructure from './BasicSpace';
-import proxify from '../protocol/proxify';
+import SpatialStructure from './BasicSpace.js';
+import proxify from '../protocol/proxify.js';
 
 function Historian(tickRate, ticksToSave, ID_PROPERTY_NAME, DIMENSIONALITY) {
     this.history = {}

@@ -1,5 +1,4 @@
-require = require("esm")(module/*, options*/)
-const nengi = require('..').default
+import nengi from '../index.js'
 
 class Entity {
     constructor(x, y) {
