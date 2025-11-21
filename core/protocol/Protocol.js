@@ -1,6 +1,7 @@
 import createPropSchema from './createPropSchema.js';
 import createOptSchema from './createOptSchema.js';
 import selectUIntType from './selectUIntType.js';
+import Binary from '../binary/Binary.js';
 
 function Protocol(schemaConfig, config, optSchemaConfig, components, throwOnAdvancedTypes) {
 	//console.log('creating protocol from', schemaConfig, throwOnAdvancedTypes)
@@ -50,6 +51,10 @@ function Protocol(schemaConfig, config, optSchemaConfig, components, throwOnAdva
 		var propConfig =  schemaConfig[prop]
 
 		this.properties[prop] = createPropSchema(i, propConfig, throwOnAdvancedTypes)
+		// Precompute constant bit width for fixed-size types to reduce repeated lookups
+		if (Binary[this.properties[prop].type] && !Binary[this.properties[prop].type].countBits) {
+			this.properties[prop].constantBits = Binary[this.properties[prop].type].bits
+		}
 		this.keys.push(prop)
 
 		if (prop.indexOf('.') !== -1) {
@@ -78,6 +83,9 @@ function Protocol(schemaConfig, config, optSchemaConfig, components, throwOnAdva
 			var optConfig =  optSchemaConfig[prop]
 
 			batch.properties[prop] = createOptSchema(i, optConfig)
+			if (Binary[batch.properties[prop].type] && !Binary[batch.properties[prop].type].countBits) {
+				batch.properties[prop].constantBits = Binary[batch.properties[prop].type].bits
+			}
 			batch.keys.push(prop)
 
 			if (prop.indexOf('.') !== -1) {

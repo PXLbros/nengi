@@ -85,7 +85,11 @@ export default function chooseOptimization(idPropertyName, oldProxy, newProxy, p
             var propMeta2 = protocol.properties[d2.prop]
             singleBitsBound += Binary[idType].bits
             singleBitsBound += Binary[protocol.keyType].bits
-            singleBitsBound += countPropBits(propMeta2.type, undefined, d2.is)
+            if (propMeta2.constantBits) {
+                singleBitsBound += propMeta2.constantBits
+            } else {
+                singleBitsBound += countPropBits(propMeta2.type, undefined, d2.is)
+            }
         }
 
         var candidateUpdates = []
@@ -112,7 +116,11 @@ export default function chooseOptimization(idPropertyName, oldProxy, newProxy, p
                 continue // unchanged delta, skip entirely
             }
             // add bits cost of this update
-            batchBitsRunning += Binary[optCfg.type].bits
+            if (propMeta.constantBits) {
+                batchBitsRunning += propMeta.constantBits
+            } else {
+                batchBitsRunning += Binary[optCfg.type].bits
+            }
             // Early exit: if batch already worse than singles, abort
                 if (batchBitsRunning > singleBitsBound) {
                     isBatchValid = false

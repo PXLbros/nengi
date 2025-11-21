@@ -74,6 +74,10 @@ class Instance extends EventEmitter {
         this.basicSpace = new BasicSpace(config.ID_PROPERTY_NAME, config.DIMENSIONALITY)
 
         this.commands = []
+        // Ring buffer head index for command queue (avoids O(n) Array.shift cost)
+        this._commandHead = 0
+        // Configurable: enable optimized command queue
+        this._useOptimizedCommandQueue = typeof config.ENABLE_OPTIMIZED_COMMAND_QUEUE === 'boolean' ? config.ENABLE_OPTIMIZED_COMMAND_QUEUE : true
 
         this.transferCallback = null
         this.connectCallback = null
@@ -224,11 +228,28 @@ class Instance extends EventEmitter {
     }
 
     getNextCommand() {
-        var cmd = this.commands.shift()
-        if (cmd && cmd.client.lastProcessedClientTick < cmd.tick) {
-            cmd.client.lastProcessedClientTick = cmd.tick
+        if (this._useOptimizedCommandQueue) {
+            if (this._commandHead >= this.commands.length) {
+                return null
+            }
+            var cmd = this.commands[this._commandHead]
+            this._commandHead++
+            // Compact array occasionally to prevent unbounded growth
+            if (this._commandHead > 32 && this._commandHead > (this.commands.length >> 1)) {
+                this.commands = this.commands.slice(this._commandHead)
+                this._commandHead = 0
+            }
+            if (cmd && cmd.client.lastProcessedClientTick < cmd.tick) {
+                cmd.client.lastProcessedClientTick = cmd.tick
+            }
+            return cmd
+        } else {
+            var cmd = this.commands.shift()
+            if (cmd && cmd.client.lastProcessedClientTick < cmd.tick) {
+                cmd.client.lastProcessedClientTick = cmd.tick
+            }
+            return cmd
         }
-        return cmd
     }
 
     onConnect(callback) {
@@ -604,6 +625,11 @@ class Instance extends EventEmitter {
 
         var pingKey = (tick % this.config.PING_PONG_TICK_INTERVAL === 0) ? client.latencyRecord.generatePingKey() : -1
 
+        // Reuse snapshot arrays from a simple pool to reduce allocations
+        this._arrayPool = this._arrayPool || []
+        const acquireArray = () => (this._arrayPool.pop() || [])
+        const releaseArray = (arr) => { arr.length = 0; if (this._arrayPool.length < 64) this._arrayPool.push(arr) }
+
         var snapshot = {
             tick: tick,
             clientTick: client.lastProcessedClientTick,
@@ -613,16 +639,16 @@ class Instance extends EventEmitter {
             timestamp: timestamp,
             transferKey: client.transferKey,
 
-            engineMessages: [],
-            localEvents: [],
-            messages: [],
-            jsons: [],
-            createEntities: [],
-            deleteEntities: [],
+            engineMessages: acquireArray(),
+            localEvents: acquireArray(),
+            messages: acquireArray(),
+            jsons: acquireArray(),
+            createEntities: acquireArray(),
+            deleteEntities: acquireArray(),
             updateEntities: {
-                full: [],
-                partial: [],
-                optimized: []
+                full: acquireArray(),
+                partial: acquireArray(),
+                optimized: acquireArray()
             }
         }
 
@@ -633,13 +659,12 @@ class Instance extends EventEmitter {
         for (var i = 0; i < client.messageQueue.length; i++) {
             snapshot.messages.push(client.messageQueue[i])
         }
-        client.messageQueue = []
+        client.messageQueue.length = 0
 
-        client.jsonQueue.forEach(json => {
-            snapshot.jsons.push(json)
-        })
-
-        client.jsonQueue = []
+        for (var i = 0; i < client.jsonQueue.length; i++) {
+            snapshot.jsons.push(client.jsonQueue[i])
+        }
+        client.jsonQueue.length = 0
 
         var vision = client.checkVisibility(spatialStructure, tick)
 
@@ -687,6 +712,7 @@ class Instance extends EventEmitter {
         }
 
         snapshot.localEvents = vision.events
+        // NOTE: Caller is responsible for releasing arrays after serialization if pooling is extended.
         return snapshot
     }
 }
