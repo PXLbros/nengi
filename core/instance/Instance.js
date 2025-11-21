@@ -86,6 +86,21 @@ class Instance extends EventEmitter {
         // if no history
         this.basicSpace = new BasicSpace(config.ID_PROPERTY_NAME, config.DIMENSIONALITY)
 
+        // Initialize quadtree spatial indexing if enabled
+        if (config.ENABLE_SPATIAL_INDEX && config.DIMENSIONALITY === 2) {
+            const worldBounds = {
+                x: 0,
+                y: 0,
+                halfWidth: config.SPATIAL_INDEX_WORLD_WIDTH,
+                halfHeight: config.SPATIAL_INDEX_WORLD_HEIGHT
+            }
+            this.basicSpace.enableQuadtree(
+                worldBounds,
+                config.SPATIAL_INDEX_MAX_DEPTH,
+                config.SPATIAL_INDEX_MAX_ENTITIES_PER_NODE
+            )
+        }
+
         this.commands = []
         // Ring buffer head index for command queue (avoids O(n) Array.shift cost)
         this._commandHead = 0
@@ -437,7 +452,7 @@ class Instance extends EventEmitter {
      */
     removeEntity(entity) {
         if (!this.config.USE_HISTORIAN) {
-            this.basicSpace.entities.remove(entity)
+            this.basicSpace.removeEntity(entity)
         }
         const id = entity[this.config.ID_PROPERTY_NAME]
         this.deleteEntities.push(id)

@@ -40,12 +40,12 @@ describe('Integration: Latency simulation', () => {
       bot.update()
       await new Promise(r => setTimeout(r, 8))
       client = instance.clients.get(0)
-      if (client && client.latencyRecord.latencies.length > 0) {
+      if (client && client.latencyRecord.latencyCount > 0) {
         break
       }
     }
     expect(client).toBeTruthy()
-    expect(client.latencyRecord.latencies.length).toBeGreaterThan(0)
+    expect(client.latencyRecord.latencyCount).toBeGreaterThan(0)
     expect(client.latencyRecord.averageLatency).toBeGreaterThan(0)
     // Wait for a snapshot to propagate the avgLatency to bot
     for (let t = 0; t < 60 && bot.averagePing === 100; t++) {
