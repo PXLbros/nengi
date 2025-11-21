@@ -17,6 +17,10 @@ function Protocol(schemaConfig, config, optSchemaConfig, components, throwOnAdva
 	if (typeof this.config.BATCH_MIN_UPDATES !== 'number') {
 		this.config.BATCH_MIN_UPDATES = 2
 	}
+	// maximum number of changed properties allowed for batch (Infinity by default)
+	if (typeof this.config.BATCH_MAX_KEYS !== 'number') {
+		this.config.BATCH_MAX_KEYS = Infinity
+	}
 	this.hasOptimizations = false
 
 	var arr = []

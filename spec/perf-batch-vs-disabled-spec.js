@@ -106,13 +106,17 @@ describe('perf: batch enabled vs disabled', () => {
     for (const count of ENTITY_COUNTS) {
       const disabled = runScenario(false, count)
       const enabled = runScenario(true, count)
-      console.log(`[perf] entities:${count} disabled ms:${disabled.ms} avgBytes:${disabled.avgBytes.toFixed(2)}`)
-      console.log(`[perf] entities:${count} enabled  ms:${enabled.ms} avgBytes:${enabled.avgBytes.toFixed(2)}`)
+      const disabledMsPerTick = (disabled.ms / TICKS).toFixed(2)
+      const enabledMsPerTick = (enabled.ms / TICKS).toFixed(2)
+      const disabledBytesPerEntity = (disabled.avgBytes / count).toFixed(2)
+      const enabledBytesPerEntity = (enabled.avgBytes / count).toFixed(2)
+      console.log(`[perf] entities:${count} disabled ms:${disabled.ms} ms/tick:${disabledMsPerTick} avgBytes:${disabled.avgBytes.toFixed(2)} bytes/entity:${disabledBytesPerEntity}`)
+      console.log(`[perf] entities:${count} enabled  ms:${enabled.ms} ms/tick:${enabledMsPerTick} avgBytes:${enabled.avgBytes.toFixed(2)} bytes/entity:${enabledBytesPerEntity}`)
     }
     // single property mutation scenario
     const singleDisabled = runSinglePropScenario(false, 500)
     const singleEnabled = runSinglePropScenario(true, 500)
-    console.log(`[perf-single-prop] 500 disabled ms:${singleDisabled.ms} avgBytes:${singleDisabled.avgBytes.toFixed(2)}`)
-    console.log(`[perf-single-prop] 500 enabled  ms:${singleEnabled.ms} avgBytes:${singleEnabled.avgBytes.toFixed(2)}`)
+    console.log(`[perf-single-prop] 500 disabled ms:${singleDisabled.ms} ms/tick:${(singleDisabled.ms/TICKS).toFixed(2)} avgBytes:${singleDisabled.avgBytes.toFixed(2)} bytes/entity:${(singleDisabled.avgBytes/500).toFixed(2)}`)
+    console.log(`[perf-single-prop] 500 enabled  ms:${singleEnabled.ms} ms/tick:${(singleEnabled.ms/TICKS).toFixed(2)} avgBytes:${singleEnabled.avgBytes.toFixed(2)} bytes/entity:${(singleEnabled.avgBytes/500).toFixed(2)}`)
   })
 })

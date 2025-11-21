@@ -112,9 +112,9 @@ class Instance extends EventEmitter {
                 message: (ws, message, isBinary) => {
                     const client = ws._nengiClient
                     if (client) {
-                        // Convert ArrayBuffer to Buffer
-                        const buffer = Buffer.from(message)
-                        this.onMessage(buffer, client)
+                        // Zero-copy path: pass ArrayBuffer directly to reader
+                        // readCommandBuffer can accept ArrayBuffer; avoid Buffer.from copy
+                        this.onMessage(message, client)
                     }
                 },
                 close: (ws, code, message) => {
