@@ -13,6 +13,10 @@ function Protocol(schemaConfig, config, optSchemaConfig, components, throwOnAdva
 	if (typeof this.config.ENABLE_BATCH_OPTIMIZATION !== 'boolean') {
 		this.config.ENABLE_BATCH_OPTIMIZATION = false
 	}
+	// minimum number of changed properties required before attempting a batch
+	if (typeof this.config.BATCH_MIN_UPDATES !== 'number') {
+		this.config.BATCH_MIN_UPDATES = 2
+	}
 	this.hasOptimizations = false
 
 	var arr = []

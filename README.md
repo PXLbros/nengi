@@ -51,6 +51,30 @@ Other templates:
 * [nengi-babylon-3d-shooter](https://github.com/timetocode/nengi-babylon-3d-shooter) - A template for 3D predicted games with Babylon.js
 * [3d-top-down](https://github.com/timetocode/3d-top-down) - A top down game, in a 3d engine (Babylon.js)
 
+## Batch Optimization (Experimental Toggle)
+Entity update snapshots can optionally group multiple property changes for the same entity into a single "optimized batch" chunk, reducing per-update overhead. This is gated behind a protocol config flag so existing games remain unchanged by default.
+
+Enable per protocol via the constructor: `new Protocol(schema, config, optSchema, ...)` where `config` includes:
+```js
+const config = {
+    ID_PROPERTY_NAME: 'id',
+    ID_BINARY_TYPE: nengi.UInt16,
+    TYPE_PROPERTY_NAME: 'type',
+    ENABLE_BATCH_OPTIMIZATION: true, // default is false
+    BATCH_MIN_UPDATES: 2 // minimum changed properties required before batching
+}
+```
+When enabled nengi will attempt to batch property diffs when it is safe to do so (atomic validity rules). Properties defined in `optSchema` with `delta: true` are encoded as deltas in the batch, while absolute properties (`delta: false`) include their full value. If batching cannot be done safely the update falls back to individual per-property updates.
+
+Trade-offs & Heuristic:
+- Can reduce repeated markers & ids.
+- May increase size if batching triggers for single-property changes; mitigated by `BATCH_MIN_UPDATES` (default 2) which forces single-property diffs to remain partial updates.
+- Best for entities with several frequently changing delta-encoded numeric fields and few absolute fields.
+- Tune `BATCH_MIN_UPDATES` upward (e.g. 3) if batches are still too large relative to partial updates in your workload.
+
+Disable anytime by setting the flag to `false`; games not enabling the flag retain legacy behavior. Adjust or remove batching dynamically by changing config on protocol creation.
+
+
 
 ## Usage
 The [API documentation](https://timetocode.com/nengi) is the place to go for implementation details. But as an appetizer here is a tour of the the functionality associated with one of nengi's core features, the nengi.Entity

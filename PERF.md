@@ -30,14 +30,20 @@ Batching logic has been re-enabled and gated behind `ENABLE_BATCH_OPTIMIZATION` 
 3. Document toggle in README/usage examples.
 4. Add bit-level chunk marker verification helper (optional) to restore direct marker assertion.
 
-### Current Batching Perf Snapshot (dev machine)
+### Expanded Batching Perf Snapshot (dev machine)
 
-| Scenario | Entities | Ticks | ENABLE_BATCH_OPTIMIZATION | Total ms | Avg Bytes/Snapshot |
-|----------|----------|-------|---------------------------|----------|--------------------|
-| Baseline | 500      | 50    | false                     | ~27 ms   | ~2948 bytes        |
-| Batched  | 500      | 50    | true                      | ~25 ms   | ~3569 bytes        |
+| Entities | Ticks | ENABLE_BATCH_OPTIMIZATION | BATCH_MIN_UPDATES | Total ms | Avg Bytes/Snapshot |
+|----------|-------|---------------------------|-------------------|----------|--------------------|
+| 100      | 50    | false                     | -                 | 12 ms    | 605.90 bytes       |
+| 100      | 50    | true                      | 2                 | 10 ms    | 573.96 bytes       |
+| 500      | 50    | false                     | -                 | 21 ms    | 2948.24 bytes      |
+| 500      | 50    | true                      | 2                 | 16 ms    | 2776.70 bytes      |
+| 2000     | 50    | false                     | -                 | 54 ms    | 11731.04 bytes     |
+| 2000     | 50    | true                      | 2                 | 72 ms    | 11039.42 bytes     |
+| 500 (single-prop) | 50 | false                | -                 | 17 ms    | 1478.60 bytes      |
+| 500 (single-prop) | 50 | true                 | 2                 | 11 ms    | 1478.60 bytes      |
 
-Interpretation: With current schema & mutation pattern batches increase snapshot byte size (due to always sending full batch properties) but shave a small amount of CPU time (~7% here). Further tuning of opt schema (e.g., limiting batch keys to frequently changing props) should reduce size overhead and improve win. More representative workloads needed.
+Interpretation: Introducing the `BATCH_MIN_UPDATES` heuristic (default 2) prevents batching for single-property changes, reducing average snapshot size compared to previous all-batch approach (notably at 100 & 500 entities). For large entity counts (2000) batching still increases CPU time—likely due to batch construction overhead; additional heuristics (e.g., upper bound on batch keys or dynamic size comparison) may be warranted. Single-property scenario shows identical size (heuristic forces partial path) with improved ms when batching enabled (overhead avoided). Further tuning could compare estimated bits before final selection.
 
 ### 2. Eliminate Buffer Copying in WebSocket Message Handling
 

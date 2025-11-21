@@ -37,7 +37,8 @@ export default function chooseOptimization(idPropertyName, oldProxy, newProxy, p
 
     // Use config option to control batch optimization
     var enableBatch = protocol.config?.ENABLE_BATCH_OPTIMIZATION === true
-    var isBatchValid = enableBatch && isBatchAtomiclyValid(diffs, protocol)
+    var minUpdates = protocol.config?.BATCH_MIN_UPDATES || 2
+    var isBatchValid = enableBatch && diffs.length >= minUpdates && isBatchAtomiclyValid(diffs, protocol)
 
     if (isBatchValid) {
         protocol.batch.keys.forEach(key => {

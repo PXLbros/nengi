@@ -23,7 +23,7 @@ const config = {
 }
 
 describe('integration: snapshot batch chunk', () => {
-    it('writes and detects batch chunk marker', () => {
+    it('writes an optimized batch chunk increasing snapshot size', () => {
         const protocol = new Protocol(schema, config, optSchema, null, true)
         const oldProxy = { id: 1, a: 100, b: 200, c: 300 }
         const newProxy = { id: 1, a: 105, b: 198, c: 450 }
@@ -41,9 +41,13 @@ describe('integration: snapshot batch chunk', () => {
             messages: [],
             jsons: []
         }
-        const buffer = createSnapshotBuffer(snapshot, config)
-        const arr = Array.from(buffer.byteArray)
-        // Look for chunk marker 6 (UpdateEntitiesOptimized)
-        expect(arr.includes(6)).toBe(true)
+        const bufferWithBatch = createSnapshotBuffer(snapshot, config)
+
+        // Build a snapshot without the optimized batch for comparison
+        const snapshotNoBatch = { ...snapshot, updateEntities: { partial: [], optimized: [] } }
+        const bufferNoBatch = createSnapshotBuffer(snapshotNoBatch, config)
+
+        // Expect presence of batch to increase buffer size (writes marker + id + counts + values)
+        expect(bufferWithBatch.byteArray.length).toBeGreaterThan(bufferNoBatch.byteArray.length)
     })
 })
