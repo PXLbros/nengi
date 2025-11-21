@@ -1,4 +1,4 @@
-import nengi from '../index.js'
+import nengi from '../../index.js'
 
 class Entity {
     constructor(x, y) {

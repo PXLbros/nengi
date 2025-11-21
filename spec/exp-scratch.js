@@ -1,3 +1,4 @@
+import { describe, it } from 'vitest'
 
 // experimental visibility logic
 
@@ -74,7 +75,7 @@ const checkVisibility = (client, tick) => {
     return { cr, up, de }
 }
 
-xdescribe('experimental', () => {
+describe.skip('experimental', () => {
     it('channel basics', () => {
         const client = createClient()
         client.spaces.push(mockEntityQuery([1, 2, 3]))

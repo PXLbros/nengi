@@ -1,5 +1,6 @@
+import { describe, it, expect } from 'vitest'
 import nengi from '../index.js'
-import connectionMocker from './connectionMocker.js'
+import connectionMocker from './manual/connectionMocker.js'
 
 class Entity {
     constructor(x, y) {

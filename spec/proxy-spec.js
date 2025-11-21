@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest'
 import proxify from '../core/protocol/proxify.js'
 import deproxify from '../core/protocol/deproxify.js'
 import copyProxy from '../core/protocol/copyProxy.js'
@@ -101,7 +102,7 @@ describe('proxification', function() {
         expect(recreatedObj).not.toBe(obj)
 
         expect(recreatedObj.physics.velocity.y).toEqual(-24)
-    }, config)
+    })
 
     it('of an object containing an array of values', function() {
         var obj = {

@@ -33,11 +33,11 @@
     },
     "dependencies": {
         "eventemitter3": "5.0.1",
-        "uwebsockets.js": "github:uNetworking/uWebSockets.js#v20.55.0",
         "utf8": "^3.0.0",
+        "uwebsockets.js": "github:uNetworking/uWebSockets.js#v20.56.0",
         "ws": "^8.17.0"
     },
     "devDependencies": {
-        "vitest": "^2.0.0"
+        "vitest": "^4.0.12"
     }
 }

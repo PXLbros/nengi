@@ -2,9 +2,7 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    globals: true,
-    environment: 'node',
-    include: ['spec/**/*-spec.js'],
-    reporters: ['verbose'],
+    include: ['spec/**/*.js'],
+    exclude: ['spec/manual/**'],
   },
 })
