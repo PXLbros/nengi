@@ -294,7 +294,10 @@ class Instance extends EventEmitter {
             if (typeof this.disconnectCallback === 'function') {
                 this.disconnectCallback(client, event)
             }
-            client.connection.close()
+            // Guard against double close: uWS close handler sets _nengiOpen = false before calling disconnect
+            if (client.connection && client.connection._nengiOpen === true) {
+                client.connection.close()
+            }
         } else {
             // This client appears to have disconnected INBETWEEN the websocket connection forming
             // and the game logic choosing to accept the connection, so the game logic at this very moment

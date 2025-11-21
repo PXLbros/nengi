@@ -12,6 +12,11 @@ import { EventEmitter } from 'eventemitter3'
 import WebSocket from 'ws'
 
 class Bot extends EventEmitter {
+        disconnect() {
+            if (this.websocket) {
+                this.websocket.close()
+            }
+        }
     constructor(config, protocols) {
         super()
         this.config = config
