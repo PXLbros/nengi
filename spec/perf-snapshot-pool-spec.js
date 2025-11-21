@@ -20,39 +20,50 @@ function makeConfig(poolMax) {
   }
 }
 
-describe('perf: snapshot array pooling', () => {
-  it('compares pooled vs disabled for snapshot construction', () => {
-    const ENTITY_COUNT = 1000
-    const TICKS = 100
-    function run(poolMax) {
-      const cfg = makeConfig(poolMax)
-      const instance = new nengi.Instance(cfg, { port: 0, mock: true })
-      const entities = []
-      for (let i = 0; i < ENTITY_COUNT; i++) {
-        const e = new PoolEntity(i+1)
-        // Assign the protocol object produced by ProtocolMap (on prototype)
-        e.protocol = PoolEntity.prototype.protocol
-        entities.push(instance.addEntity(e))
-      }
-      const start = process.hrtime.bigint()
-      for (let t = 0; t < TICKS; t++) {
-        // mutate entities lightly
-        for (let i = 0; i < ENTITY_COUNT; i++) {
-          const ent = entities[i]
-          ent.x += ((i + t) % 3) - 1
-        }
-        instance.update()
-      }
-      const end = process.hrtime.bigint()
-      const ms = Number(end - start) / 1e6
-      const mem = process.memoryUsage()
-      return { ms, mem }
+function runScenario(entityCount, ticks, poolMax) {
+  const cfg = makeConfig(poolMax)
+  const instance = new nengi.Instance(cfg, { port: 0, mock: true })
+  const entities = []
+  for (let i = 0; i < entityCount; i++) {
+    const e = new PoolEntity(i+1)
+    e.protocol = PoolEntity.prototype.protocol
+    entities.push(instance.addEntity(e))
+  }
+  const start = process.hrtime.bigint()
+  for (let t = 0; t < ticks; t++) {
+    for (let i = 0; i < entityCount; i++) {
+      const ent = entities[i]
+      ent.x += ((i + t) % 3) - 1
     }
+    instance.update()
+  }
+  const end = process.hrtime.bigint()
+  const ms = Number(end - start) / 1e6
+  const mem = process.memoryUsage()
+  return { ms, mem }
+}
 
-    const pooled = run(64)
-    const disabled = run(0)
-    console.log(`[perf-snapshot-pool] pooled ms:${pooled.ms.toFixed(2)} rss:${(pooled.mem.rss/1e6).toFixed(2)}MB heapUsed:${(pooled.mem.heapUsed/1e6).toFixed(2)}MB arrayBuffers:${(pooled.mem.arrayBuffers/1e6).toFixed(2)}MB`)
-    console.log(`[perf-snapshot-pool] disabled ms:${disabled.ms.toFixed(2)} rss:${(disabled.mem.rss/1e6).toFixed(2)}MB heapUsed:${(disabled.mem.heapUsed/1e6).toFixed(2)}MB arrayBuffers:${(disabled.mem.arrayBuffers/1e6).toFixed(2)}MB`)
-    // Non-assertive; provide rough comparison (expect pooled <= disabled time)
+describe('perf: snapshot array pooling', () => {
+  it('baseline 1000 entities (pool vs disabled)', () => {
+    const pooled = runScenario(1000, 100, 64)
+    const disabled = runScenario(1000, 100, 0)
+    console.log(`[perf-snapshot-pool][1000] pooled ms:${pooled.ms.toFixed(2)} ms/tick:${(pooled.ms/100).toFixed(2)} rss:${(pooled.mem.rss/1e6).toFixed(2)}MB heapUsed:${(pooled.mem.heapUsed/1e6).toFixed(2)}MB`)
+    console.log(`[perf-snapshot-pool][1000] disabled ms:${disabled.ms.toFixed(2)} ms/tick:${(disabled.ms/100).toFixed(2)} rss:${(disabled.mem.rss/1e6).toFixed(2)}MB heapUsed:${(disabled.mem.heapUsed/1e6).toFixed(2)}MB`)
+  })
+
+  it('scaled 5000 entities 60 ticks (pool vs disabled)', () => {
+    const ticks = 60
+    const pooled = runScenario(5000, ticks, 128) // enlarge pool for more entities
+    const disabled = runScenario(5000, ticks, 0)
+    console.log(`[perf-snapshot-pool][5000x${ticks}] pooled ms:${pooled.ms.toFixed(2)} ms/tick:${(pooled.ms/ticks).toFixed(2)} rss:${(pooled.mem.rss/1e6).toFixed(2)}MB heapUsed:${(pooled.mem.heapUsed/1e6).toFixed(2)}MB`)
+    console.log(`[perf-snapshot-pool][5000x${ticks}] disabled ms:${disabled.ms.toFixed(2)} ms/tick:${(disabled.ms/ticks).toFixed(2)} rss:${(disabled.mem.rss/1e6).toFixed(2)}MB heapUsed:${(disabled.mem.heapUsed/1e6).toFixed(2)}MB`)
+  })
+
+  it('high tick 5000 entities 120 ticks (pool vs disabled)', () => {
+    const ticks = 120
+    const pooled = runScenario(5000, ticks, 128)
+    const disabled = runScenario(5000, ticks, 0)
+    console.log(`[perf-snapshot-pool][5000x${ticks}] pooled ms:${pooled.ms.toFixed(2)} ms/tick:${(pooled.ms/ticks).toFixed(2)} rss:${(pooled.mem.rss/1e6).toFixed(2)}MB heapUsed:${(pooled.mem.heapUsed/1e6).toFixed(2)}MB`)
+    console.log(`[perf-snapshot-pool][5000x${ticks}] disabled ms:${disabled.ms.toFixed(2)} ms/tick:${(disabled.ms/ticks).toFixed(2)} rss:${(disabled.mem.rss/1e6).toFixed(2)}MB heapUsed:${(disabled.mem.heapUsed/1e6).toFixed(2)}MB`)
   })
 })
