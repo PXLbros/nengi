@@ -106,7 +106,8 @@ There are no automated performance benchmarks.
 
 1. Introduce property-based randomized prediction vs authoritative fuzz tests (numeric & string).
 2. Add snapshot batch optimization test once batching re-enabled.
-3. Begin integration harness: start `Instance`, connect bot client, verify end-to-end entity creation/update/prediction consistency.
-4. Add performance baseline benchmarks before enabling batching optimization.
-5. Add tests for transfer/handshake buffers (createHandshake, readConnectionResponse) to catch protocol regressions.
+3. [x] Added comprehensive end-to-end integration test (`spec/integration-end-to-end-spec.js`) covering multi-client lifecycle, command processing, update broadcast, and disconnect cleanup.
+4. Begin perf/stress harness: simulate large numbers of entities and clients, measure tick/update throughput, and track memory usage under load.
+5. Add performance baseline benchmarks before enabling batching optimization.
+6. Add tests for transfer/handshake buffers (createHandshake, readConnectionResponse) to catch protocol regressions.
 
