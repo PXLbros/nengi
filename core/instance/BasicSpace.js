@@ -4,11 +4,12 @@ import EDictionary from '../../external/EDictionary.js'
 import { Quadtree } from './Quadtree.js'
 import { Octree } from './Octree.js'
 
-function BasicSpace(ID_PROPERTY_NAME, DIMENSIONALITY) {
+function BasicSpace(ID_PROPERTY_NAME, DIMENSIONALITY, config) {
     this.DIMENSIONALITY = DIMENSIONALITY
     this.ID_PROPERTY_NAME = ID_PROPERTY_NAME || 'id'
-    this.entities = new EDictionary(ID_PROPERTY_NAME)
-    this.events = new EDictionary(ID_PROPERTY_NAME)
+    this.config = config
+    this.entities = new EDictionary(ID_PROPERTY_NAME, config)
+    this.events = new EDictionary(ID_PROPERTY_NAME, config)
 
     // Spatial indexing strategy
     this._indexStrategy = 'brute-force'
@@ -115,7 +116,7 @@ BasicSpace.prototype.removeEntity = function (entity) {
 }
 
 BasicSpace.prototype.flushEvents = function () {
-    this.events = new EDictionary(this.ID_PROPERTY_NAME)
+    this.events = new EDictionary(this.ID_PROPERTY_NAME, this.config)
 }
 
 const queryAreaEMap2D = (aabb, entities, ID_PROPERTY_NAME) => {

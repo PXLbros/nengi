@@ -16,7 +16,10 @@ const defaults = {
     SPATIAL_INDEX_WORLD_HEIGHT: 10000,
     SPATIAL_INDEX_WORLD_DEPTH: 10000,
     SPATIAL_INDEX_MAX_DEPTH: 7,
-    SPATIAL_INDEX_MAX_ENTITIES_PER_NODE: 8
+    SPATIAL_INDEX_MAX_ENTITIES_PER_NODE: 8,
+    // Visibility removal optimization
+    USE_FAST_VISIBILITY_REMOVAL: false,
+    DEBUG_VISIBILITY_REMOVAL: false
 }
 
 export default defaults

@@ -17,7 +17,7 @@ class Channel {
         this.id = id
         this.instance = instance
         this.config = instance.config
-        this.entities = new EDictionary(this.config.ID_PROPERTY_NAME)
+        this.entities = new EDictionary(this.config.ID_PROPERTY_NAME, this.config)
         this.clients = new Map()
         this.destroyed = false
         //this.instance.channelCount++

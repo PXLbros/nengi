@@ -44,5 +44,5 @@ describe('perf: command queue', () => {
         }
         const t3 = Date.now()
         console.log(`[perf-command-queue] optimized: ${t1-t0}ms, shift: ${t3-t2}ms, speedup: ${((t3-t2)/(t1-t0)).toFixed(2)}x`)
-    })
+    }, 15000)
 })

@@ -1,6 +1,7 @@
 class EDictionary {
-    constructor(ID_PROPERTY_NAME) {
+    constructor(ID_PROPERTY_NAME, config) {
         this.ID_PROPERTY_NAME = ID_PROPERTY_NAME || 'id'
+        this.config = config
         this.object = {}
         this.array = []
     }
@@ -54,7 +55,25 @@ class EDictionary {
                 }
             }
             if (index !== -1) {
-                this.array.splice(index, 1)
+                if (this.config && this.config.USE_FAST_VISIBILITY_REMOVAL) {
+                    // O(1) swap-with-last optimization
+                    const lastIdx = this.array.length - 1
+                    if (index !== lastIdx) {
+                        this.array[index] = this.array[lastIdx]
+                    }
+                    this.array.pop()
+
+                    if (this.config.DEBUG_VISIBILITY_REMOVAL) {
+                        console.log(`[EDictionary] Removed item at index ${index} using swap-with-last`)
+                    }
+                } else {
+                    // Original O(n) splice operation
+                    this.array.splice(index, 1)
+
+                    if (this.config && this.config.DEBUG_VISIBILITY_REMOVAL) {
+                        console.log(`[EDictionary] Removed item at index ${index} using splice`)
+                    }
+                }
             } else {
                 //throw new Error('EDictionary could not remove object, id not found.')
             }

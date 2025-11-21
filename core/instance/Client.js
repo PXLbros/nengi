@@ -133,7 +133,26 @@ class Client {
                 toDelete.push(id)
                 this.cache[id] = 0
                 //delete this.cache[id]
-                this.cacheArr.splice(i, 1)
+
+                if (this.config.USE_FAST_VISIBILITY_REMOVAL) {
+                    // O(1) swap-with-last optimization
+                    const lastIdx = this.cacheArr.length - 1
+                    if (i !== lastIdx) {
+                        this.cacheArr[i] = this.cacheArr[lastIdx]
+                    }
+                    this.cacheArr.pop()
+
+                    if (this.config.DEBUG_VISIBILITY_REMOVAL) {
+                        console.log(`[Visibility] Removed entity ${id} using swap-with-last`)
+                    }
+                } else {
+                    // Original O(n) splice operation
+                    this.cacheArr.splice(i, 1)
+
+                    if (this.config.DEBUG_VISIBILITY_REMOVAL) {
+                        console.log(`[Visibility] Removed entity ${id} using splice`)
+                    }
+                }
             }
         }
 

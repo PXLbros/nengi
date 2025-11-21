@@ -13,7 +13,7 @@ function WorldState(tick, timeBetweenSnapshots, snapshot, previousWorldState, co
    
     this.timestamp = snapshot.timestamp
     // entity state
-    this.entities = new EDictionary(config.ID_PROPERTY_NAME)
+    this.entities = new EDictionary(config.ID_PROPERTY_NAME, config)
 
 
     this.noInterps = new Set()

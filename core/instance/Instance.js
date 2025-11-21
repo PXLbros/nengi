@@ -71,10 +71,10 @@ class Instance extends EventEmitter {
 
         this.entityIdPool = new IdPool(config.ID_BINARY_TYPE)
         this.pendingClients = new Map()
-        this._entities = new EDictionary(config.ID_PROPERTY_NAME)
-        this.clients = new EDictionary()
-        this.entities = new EDictionary(config.ID_PROPERTY_NAME)
-        this.channels = new EDictionary()
+        this._entities = new EDictionary(config.ID_PROPERTY_NAME, config)
+        this.clients = new EDictionary(null, config)
+        this.entities = new EDictionary(config.ID_PROPERTY_NAME, config)
+        this.channels = new EDictionary(null, config)
         this.channelCount = 0
 
         this.sources = new Map()
@@ -84,7 +84,7 @@ class Instance extends EventEmitter {
 
         this.historian = new Historian(config.UPDATE_RATE, config.HISTORIAN_TICKS, config.ID_PROPERTY_NAME, config.DIMENSIONALITY)
         // if no history
-        this.basicSpace = new BasicSpace(config.ID_PROPERTY_NAME, config.DIMENSIONALITY)
+        this.basicSpace = new BasicSpace(config.ID_PROPERTY_NAME, config.DIMENSIONALITY, config)
 
         // Initialize spatial indexing if enabled
         if (config.ENABLE_SPATIAL_INDEX) {
