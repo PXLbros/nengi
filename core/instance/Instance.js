@@ -451,7 +451,14 @@ class Instance extends EventEmitter {
      */
     addEntity(entity) {
         if (!entity.protocol) {
-            throw new Error('Object is missing a protocol or protocol was not supplied via config.')
+            const entityKeys = Object.keys(entity).slice(0, 5).join(', ')
+            const moreKeys = Object.keys(entity).length > 5 ? '...' : ''
+            throw new Error(`Cannot add entity: missing protocol property.
+Entity has properties: ${entityKeys}${moreKeys}
+Did you forget to:
+1. Attach the protocol? example: entity.protocol = YourEntity.protocol
+2. Define the protocol in your nengi config? (config.protocols.entities)
+3. Create the entity with a protocol? (class MyEntity { static protocol = new nengi.Protocol(...) })`)
         }
         this.registerEntity(entity, -1)
         this.entities.add(entity)
@@ -513,7 +520,8 @@ class Instance extends EventEmitter {
 
     addLocalMessage(lEvent) {
         if (!lEvent.protocol) {
-            throw new Error('Object is missing a protocol or protocol was not supplied via config.')
+            throw new Error(`Cannot add local message: missing protocol property.
+Did you forget to: set message.protocol = YourMessage.protocol?`)
         }
 
         lEvent[this.config.ID_PROPERTY_NAME] = this.eventId++
@@ -530,7 +538,8 @@ class Instance extends EventEmitter {
 
     message(message, clientOrClients) {
         if (!message.protocol) {
-            throw new Error('Object is missing a protocol or protocol was not supplied via config.')
+            throw new Error(`Cannot send message: missing protocol property.
+Did you forget to: set message.protocol = YourMessage.protocol?`)
         }
         message[this.config.TYPE_PROPERTY_NAME] = this.protocols.getIndex(message.protocol)
 

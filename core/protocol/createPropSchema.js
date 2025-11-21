@@ -1,3 +1,5 @@
+import BinaryTypeValidator from '../validation/BinaryTypeValidator.js'
+
 var createPropSchema = function(index, propConfig, throwOnAdvancedTypes) {
 	var type = null
 	var interp = false
@@ -76,18 +78,34 @@ var createPropSchema = function(index, propConfig, throwOnAdvancedTypes) {
 			}
 		}
 	} else {
-		/* 
+		/*
 		* Simple syntax, example:
 		* 'propName' : nengi.UInt16
 		*/
 		type = propConfig
 	}
 
-	return { 
+	// Validate type is set and valid (unless it's a protocol)
+	if (!protocol) {
+		// Check if type itself is a protocol (for nested types)
+		const isNestedProtocol = type && typeof type === 'object' && type.metaType === 'protocol'
+
+		if (!isNestedProtocol) {
+			if (typeof type === 'undefined' || type === null) {
+				throw new Error(`Protocol property at index '${index}' is missing a type.\n${BinaryTypeValidator.getMissingTypeMessage(`property '${index}'`)}`)
+			}
+
+			if (!BinaryTypeValidator.isValidBinaryType(type)) {
+				throw new Error(`Protocol property at index '${index}' has invalid type.\n${BinaryTypeValidator.getInvalidTypeMessage(type, `property '${index}'`)}`)
+			}
+		}
+	}
+
+	return {
 		key: index,
 		protocol: protocol,
-		type: type, 
-		interp: interp, 
+		type: type,
+		interp: interp,
 		isArray: isArray,
 		arrayIndexType: arrayIndexType
 	}

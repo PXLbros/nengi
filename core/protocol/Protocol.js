@@ -2,6 +2,7 @@ import createPropSchema from './createPropSchema.js';
 import createOptSchema from './createOptSchema.js';
 import selectUIntType from './selectUIntType.js';
 import Binary from '../binary/Binary.js';
+import BinaryTypeValidator from '../validation/BinaryTypeValidator.js';
 
 /**
  * Basic protocol definition for network synchronization
@@ -72,6 +73,19 @@ function Protocol(schemaConfig, config, optSchemaConfig, components, throwOnAdva
 			}
 		} else {
 			this.properties[prop].path = [prop]
+		}
+	}
+
+	// Validate all properties have valid types
+	for (const propName in this.properties) {
+		const propSchema = this.properties[propName]
+		// Skip validation for nested protocols
+		const isNestedProtocol = propSchema.type && typeof propSchema.type === 'object' && propSchema.type.metaType === 'protocol'
+		if (!propSchema.protocol && !isNestedProtocol) {
+			// createPropSchema validates, but double-check here for safety
+			if (typeof propSchema.type !== 'undefined' && !BinaryTypeValidator.isValidBinaryType(propSchema.type)) {
+				throw new Error(`Protocol validation failed: property '${propName}' has invalid type ${propSchema.type}.\n${BinaryTypeValidator.getInvalidTypeMessage(propSchema.type, `property '${propName}'`)}`)
+			}
 		}
 	}
 
