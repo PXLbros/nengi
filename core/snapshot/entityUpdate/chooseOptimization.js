@@ -14,6 +14,10 @@ function locateDiff(prop, diffs) {
 // 3 cases: batch update, single prop update, or no update needed
 export default function chooseOptimization(idPropertyName, oldProxy, newProxy, protocol) {
 
+    // Batch optimization was previously disabled due to edge cases in diff/serialization
+    // Now exposed as a config option: protocol.config?.ENABLE_BATCH_OPTIMIZATION (default: false for safety)
+    // Re-enable for performance testing; ensure stability with additional tests
+
     var id = oldProxy[idPropertyName]
     var idType = protocol.properties[idPropertyName].type
     var diffs = compare(oldProxy, newProxy, protocol)
@@ -27,14 +31,13 @@ export default function chooseOptimization(idPropertyName, oldProxy, newProxy, p
         singleProps: new Array(diffs.length)
     }
 
-
-
     if (diffs.length === 0) {
         return formattedUpdates
     }
 
-    // batching is disabled until a future version
-    var isBatchValid = false //isBatchAtomiclyValid(diffs, protocol)
+    // Use config option to control batch optimization
+    var enableBatch = protocol.config?.ENABLE_BATCH_OPTIMIZATION === true
+    var isBatchValid = enableBatch && isBatchAtomiclyValid(diffs, protocol)
 
     if (isBatchValid) {
         protocol.batch.keys.forEach(key => {
@@ -75,7 +78,7 @@ export default function chooseOptimization(idPropertyName, oldProxy, newProxy, p
         }
 
         if (isBatchValid && opt) {
-
+            // batched property, already handled above
         } else {
             var propData = protocol.properties[diff.prop]
 

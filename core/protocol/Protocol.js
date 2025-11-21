@@ -8,7 +8,11 @@ function Protocol(schemaConfig, config, optSchemaConfig, components, throwOnAdva
 	this.type = 'basic'
 	this.properties = {}
 	this.keys = []
-	
+	// Expose batch optimization toggle (default: false)
+	this.config = config || {}
+	if (typeof this.config.ENABLE_BATCH_OPTIMIZATION !== 'boolean') {
+		this.config.ENABLE_BATCH_OPTIMIZATION = false
+	}
 	this.hasOptimizations = false
 
 	var arr = []

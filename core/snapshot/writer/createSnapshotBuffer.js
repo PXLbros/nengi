@@ -33,7 +33,7 @@ function createSnapshotBuffer(snapshot, config) {
 
     bits += countMessagesBits(snapshot.createEntities)
     bits += countSinglePropsBits(snapshot.updateEntities.partial)
-    //bits += countBatchesBits(snapshot.updateEntities.optimized)
+    bits += countBatchesBits(snapshot.updateEntities.optimized)
     bits += countDeleteEntitiesBits(snapshot.deleteEntities, config)
 
     //bits += countMessagesBits(snapshot.createComponents)
@@ -61,7 +61,7 @@ function createSnapshotBuffer(snapshot, config) {
 
     writeCreateEntities(Chunk.CreateEntities, bitStream, snapshot.createEntities)
     writeSingleProps(Chunk.UpdateEntitiesPartial, bitStream, snapshot.updateEntities.partial)
-    //writeBatches(bitStream, snapshot.updateEntities.optimized)
+    writeBatches(bitStream, snapshot.updateEntities.optimized)
     writeDeleteEntities(Chunk.DeleteEntities, bitStream, snapshot.deleteEntities, config)
 
     //writeCreateEntities(Chunk.CreateComponents, bitStream, snapshot.createComponents)
