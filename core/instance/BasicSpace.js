@@ -2,6 +2,7 @@
 // the most basic spatial structure that will work with nengi's instance
 import EDictionary from '../../external/EDictionary.js'
 import { Quadtree } from './Quadtree.js'
+import { Octree } from './Octree.js'
 
 function BasicSpace(ID_PROPERTY_NAME, DIMENSIONALITY) {
     this.DIMENSIONALITY = DIMENSIONALITY
@@ -12,6 +13,7 @@ function BasicSpace(ID_PROPERTY_NAME, DIMENSIONALITY) {
     // Spatial indexing strategy
     this._indexStrategy = 'brute-force'
     this._quadtree = null
+    this._octree = null
 }
 
 BasicSpace.create = function (ID_PROPERTY_NAME, DIMENSIONALITY) {
@@ -19,14 +21,14 @@ BasicSpace.create = function (ID_PROPERTY_NAME, DIMENSIONALITY) {
 }
 
 /**
- * Enable quadtree spatial indexing
+ * Enable quadtree spatial indexing (2D only)
  * @param {Object} bounds - World bounds {x, y, halfWidth, halfHeight}
  * @param {number} maxDepth - Maximum tree depth
  * @param {number} maxEntitiesPerNode - Threshold for subdivision
  */
 BasicSpace.prototype.enableQuadtree = function (bounds, maxDepth, maxEntitiesPerNode) {
     if (this.DIMENSIONALITY !== 2) {
-        throw new Error('Quadtree only supports 2D space currently')
+        throw new Error('Quadtree only supports 2D space, use enableOctree() for 3D')
     }
     this._indexStrategy = 'quadtree'
     this._quadtree = new Quadtree(bounds, maxDepth, maxEntitiesPerNode)
@@ -39,20 +41,43 @@ BasicSpace.prototype.enableQuadtree = function (bounds, maxDepth, maxEntitiesPer
 }
 
 /**
+ * Enable octree spatial indexing (3D only)
+ * @param {Object} bounds - World bounds {x, y, z, halfWidth, halfHeight, halfDepth}
+ * @param {number} maxDepth - Maximum tree depth
+ * @param {number} maxEntitiesPerNode - Threshold for subdivision
+ */
+BasicSpace.prototype.enableOctree = function (bounds, maxDepth, maxEntitiesPerNode) {
+    if (this.DIMENSIONALITY !== 3) {
+        throw new Error('Octree only supports 3D space, use enableQuadtree() for 2D')
+    }
+    this._indexStrategy = 'octree'
+    this._octree = new Octree(bounds, maxDepth, maxEntitiesPerNode)
+
+    // Index existing entities
+    const entitiesToIndex = this.entities.toArray()
+    for (const entity of entitiesToIndex) {
+        this._octree.insert(entity)
+    }
+}
+
+/**
  * Get the current indexing strategy
- * @returns {string} 'brute-force' or 'quadtree'
+ * @returns {string} 'brute-force', 'quadtree', or 'octree'
  */
 BasicSpace.prototype.getIndexStrategy = function () {
     return this._indexStrategy
 }
 
 /**
- * Get quadtree statistics (if enabled)
+ * Get spatial index statistics (quadtree or octree if enabled)
  * @returns {Object|null} Stats or null if brute-force
  */
 BasicSpace.prototype.getIndexStats = function () {
     if (this._quadtree) {
         return this._quadtree.getStats()
+    }
+    if (this._octree) {
+        return this._octree.getStats()
     }
     return null
 }
@@ -60,9 +85,12 @@ BasicSpace.prototype.getIndexStats = function () {
 BasicSpace.prototype.insertEntity = function (entity) {
     this.entities.add(entity)
 
-    // Also insert into quadtree if enabled
+    // Also insert into quadtree or octree if enabled
     if (this._quadtree) {
         this._quadtree.insert(entity)
+    }
+    if (this._octree) {
+        this._octree.insert(entity)
     }
 }
 
@@ -77,9 +105,12 @@ BasicSpace.prototype.insertEvent = function (event) {
 BasicSpace.prototype.removeEntity = function (entity) {
     this.entities.remove(entity)
 
-    // Also remove from quadtree if enabled
+    // Also remove from quadtree or octree if enabled
     if (this._quadtree) {
         this._quadtree.remove(entity)
+    }
+    if (this._octree) {
+        this._octree.remove(entity)
     }
 }
 
@@ -223,7 +254,7 @@ const queryArea2D = (aabb, entities, events) => {
 }
 
 BasicSpace.prototype.queryArea = function (aabb) {
-    // Use quadtree if enabled
+    // Use quadtree if enabled (2D)
     if (this._quadtree) {
         const entitiesInArea = this._quadtree.query(aabb)
         const eventsInArea = this.events.toArray().filter(event => {
@@ -232,6 +263,21 @@ BasicSpace.prototype.queryArea = function (aabb) {
             const maxX = aabb.x + aabb.halfWidth
             const maxY = aabb.y + aabb.halfHeight
             return event.x <= maxX && event.x >= minX && event.y <= maxY && event.y >= minY
+        })
+        return { entities: entitiesInArea, events: eventsInArea }
+    }
+
+    // Use octree if enabled (3D)
+    if (this._octree) {
+        const entitiesInArea = this._octree.query(aabb)
+        const eventsInArea = this.events.toArray().filter(event => {
+            const minX = aabb.x - aabb.halfWidth
+            const minY = aabb.y - aabb.halfHeight
+            const minZ = aabb.z - aabb.halfDepth
+            const maxX = aabb.x + aabb.halfWidth
+            const maxY = aabb.y + aabb.halfHeight
+            const maxZ = aabb.z + aabb.halfDepth
+            return event.x <= maxX && event.x >= minX && event.y <= maxY && event.y >= minY && event.z <= maxZ && event.z >= minZ
         })
         return { entities: entitiesInArea, events: eventsInArea }
     }

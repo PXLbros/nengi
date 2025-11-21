@@ -2,36 +2,40 @@ import { describe, it, expect } from 'vitest'
 import Instance from '../core/instance/Instance.js'
 
 /**
- * Performance benchmark: Quadtree spatial indexing vs brute-force
+ * Performance benchmark: Octree spatial indexing vs brute-force for 3D
  * Tests visibility culling performance at various entity and client counts
  */
-describe('perf: spatial quadtree', () => {
+describe('perf: spatial octree', () => {
     /**
      * Helper to create a test scenario
      * @param {number} entityCount - Number of entities to create
      * @param {number} clientCount - Number of clients
      * @param {number} ticks - Number of simulation ticks
-     * @param {Object} clientView - Visibility AABB for clients {x, y, halfWidth, halfHeight}
-     * @param {boolean} enableQuadtree - Enable quadtree spatial indexing
+     * @param {Object} clientView - Visibility AABB for clients {x, y, z, halfWidth, halfHeight, halfDepth}
+     * @param {boolean} enableOctree - Enable octree spatial indexing
      * @returns {Object} Performance metrics
      */
-    const runBenchmark = (entityCount, clientCount, ticks, clientView, enableQuadtree) => {
+    const runBenchmark = (entityCount, clientCount, ticks, clientView, enableOctree) => {
         // Create protocol first
-        const Player = function (x, y) {
+        const Player = function (x, y, z) {
             this.x = x
             this.y = y
+            this.z = z
         }
         Player.protocol = {
             x: { type: 'Float32', interp: true },
-            y: { type: 'Float32', interp: true }
+            y: { type: 'Float32', interp: true },
+            z: { type: 'Float32', interp: true }
         }
 
         const config = {
             port: 0,
+            DIMENSIONALITY: 3,
             USE_HISTORIAN: false,
-            ENABLE_SPATIAL_INDEX: enableQuadtree,
+            ENABLE_SPATIAL_INDEX: enableOctree,
             SPATIAL_INDEX_WORLD_WIDTH: 20000,
             SPATIAL_INDEX_WORLD_HEIGHT: 20000,
+            SPATIAL_INDEX_WORLD_DEPTH: 20000,
             SPATIAL_INDEX_MAX_DEPTH: 7,
             SPATIAL_INDEX_MAX_ENTITIES_PER_NODE: 8,
             protocols: {
@@ -45,12 +49,13 @@ describe('perf: spatial quadtree', () => {
 
         const instance = new Instance(config, { port: 0, mock: true })
 
-        // Add entities scattered across the world
+        // Add entities scattered across the 3D world
         const entities = []
         for (let i = 0; i < entityCount; i++) {
             const x = Math.random() * 20000 - 10000
             const y = Math.random() * 20000 - 10000
-            const player = new Player(x, y)
+            const z = Math.random() * 20000 - 10000
+            const player = new Player(x, y, z)
             player.protocol = Player.protocol  // Attach protocol to instance
             instance.addEntity(player)
             entities.push(player)
@@ -87,6 +92,7 @@ describe('perf: spatial quadtree', () => {
             for (const entity of entities) {
                 entity.x += (Math.random() - 0.5) * 100
                 entity.y += (Math.random() - 0.5) * 100
+                entity.z += (Math.random() - 0.5) * 100
             }
 
             // Query visibility for each client
@@ -103,7 +109,7 @@ describe('perf: spatial quadtree', () => {
         const msPerQuery = totalMs / (ticks * clientCount)
 
         return {
-            strategy: enableQuadtree ? 'quadtree' : 'brute-force',
+            strategy: enableOctree ? 'octree' : 'brute-force',
             entities: entityCount,
             clients: clientCount,
             ticks: ticks,
@@ -111,19 +117,19 @@ describe('perf: spatial quadtree', () => {
             msPerTick: msPerTick,
             msPerQuery: msPerQuery,
             heapDeltaMB: (endMem - startMem) / 1024 / 1024,
-            indexStats: enableQuadtree ? instance.basicSpace.getIndexStats() : null
+            indexStats: enableOctree ? instance.basicSpace.getIndexStats() : null
         }
     }
 
     /**
-     * Test 1: Small world baseline
+     * Test 1: Small 3D world baseline
      * SKIPPED: Small entity counts show high overhead relative to baseline
-     * Quadtree is designed for larger datasets where hierarchy pays off
+     * Octree is designed for larger datasets where hierarchy pays off
      */
-    it.skip('1000 entities, 10 clients, 20 ticks (small world)', async () => {
-        const clientView = { x: 0, y: 0, halfWidth: 400, halfHeight: 300 }
+    it.skip('1000 entities, 10 clients, 20 ticks (small 3D world)', async () => {
+        const clientView = { x: 0, y: 0, z: 0, halfWidth: 400, halfHeight: 300, halfDepth: 300 }
 
-        console.log('\n=== Test 1: Small World (1000 entities) ===')
+        console.log('\n=== Test 1: Small 3D World (1000 entities) ===')
 
         const bruteForce = runBenchmark(1000, 10, 20, clientView, false)
         console.log('[brute-force]', {
@@ -131,29 +137,29 @@ describe('perf: spatial quadtree', () => {
             msPerQuery: bruteForce.msPerQuery.toFixed(4)
         })
 
-        const quadtree = runBenchmark(1000, 10, 20, clientView, true)
-        console.log('[quadtree]', {
-            totalMs: quadtree.totalMs,
-            msPerQuery: quadtree.msPerQuery.toFixed(4),
-            stats: quadtree.indexStats
+        const octree = runBenchmark(1000, 10, 20, clientView, true)
+        console.log('[octree]', {
+            totalMs: octree.totalMs,
+            msPerQuery: octree.msPerQuery.toFixed(4),
+            stats: octree.indexStats
         })
 
-        const speedup = bruteForce.totalMs / quadtree.totalMs
+        const speedup = bruteForce.totalMs / octree.totalMs
         console.log(`Speedup: ${speedup.toFixed(2)}x`)
 
-        // At small counts quadtree has setup overhead but should not exceed 2x
-        expect(quadtree.totalMs).toBeLessThanOrEqual(bruteForce.totalMs * 2.0)
+        // At small counts octree has setup overhead but should not exceed 2x
+        expect(octree.totalMs).toBeLessThanOrEqual(bruteForce.totalMs * 2.0)
     })
 
     /**
-     * Test 2: Medium world
-     * SKIPPED: Performance variance due to JIT warmup and tight baseline (87ms)
+     * Test 2: Medium 3D world
+     * SKIPPED: Performance variance due to JIT warmup and tight baseline
      * Very small absolute times make ratio assertions unreliable
      */
-    it.skip('5000 entities, 20 clients, 20 ticks (medium world)', async () => {
-        const clientView = { x: 0, y: 0, halfWidth: 400, halfHeight: 300 }
+    it.skip('5000 entities, 20 clients, 20 ticks (medium 3D world)', async () => {
+        const clientView = { x: 0, y: 0, z: 0, halfWidth: 400, halfHeight: 300, halfDepth: 300 }
 
-        console.log('\n=== Test 2: Medium World (5000 entities) ===')
+        console.log('\n=== Test 2: Medium 3D World (5000 entities) ===')
 
         const bruteForce = runBenchmark(5000, 20, 20, clientView, false)
         console.log('[brute-force]', {
@@ -161,29 +167,29 @@ describe('perf: spatial quadtree', () => {
             msPerQuery: bruteForce.msPerQuery.toFixed(4)
         })
 
-        const quadtree = runBenchmark(5000, 20, 20, clientView, true)
-        console.log('[quadtree]', {
-            totalMs: quadtree.totalMs,
-            msPerQuery: quadtree.msPerQuery.toFixed(4),
-            stats: quadtree.indexStats
+        const octree = runBenchmark(5000, 20, 20, clientView, true)
+        console.log('[octree]', {
+            totalMs: octree.totalMs,
+            msPerQuery: octree.msPerQuery.toFixed(4),
+            stats: octree.indexStats
         })
 
-        const speedup = bruteForce.totalMs / quadtree.totalMs
+        const speedup = bruteForce.totalMs / octree.totalMs
         console.log(`Speedup: ${speedup.toFixed(2)}x`)
 
-        // Quadtree should be competitive or better at 5000 entities
-        expect(quadtree.totalMs).toBeLessThanOrEqual(bruteForce.totalMs * 1.5)
+        // Octree should be competitive or better at 5000 entities
+        expect(octree.totalMs).toBeLessThanOrEqual(bruteForce.totalMs * 1.5)
     })
 
     /**
-     * Test 3: Large world
+     * Test 3: Large 3D world
      * SKIPPED: Performance shows variance due to JIT compilation and system load
      * Test 6 with 50 clients provides more stable benchmark at same entity count
      */
-    it.skip('10000 entities, 30 clients, 20 ticks (large world)', async () => {
-        const clientView = { x: 0, y: 0, halfWidth: 400, halfHeight: 300 }
+    it.skip('10000 entities, 30 clients, 20 ticks (large 3D world)', async () => {
+        const clientView = { x: 0, y: 0, z: 0, halfWidth: 400, halfHeight: 300, halfDepth: 300 }
 
-        console.log('\n=== Test 3: Large World (10000 entities) ===')
+        console.log('\n=== Test 3: Large 3D World (10000 entities) ===')
 
         const bruteForce = runBenchmark(10000, 30, 20, clientView, false)
         console.log('[brute-force]', {
@@ -191,27 +197,27 @@ describe('perf: spatial quadtree', () => {
             msPerQuery: bruteForce.msPerQuery.toFixed(4)
         })
 
-        const quadtree = runBenchmark(10000, 30, 20, clientView, true)
-        console.log('[quadtree]', {
-            totalMs: quadtree.totalMs,
-            msPerQuery: quadtree.msPerQuery.toFixed(4),
-            stats: quadtree.indexStats
+        const octree = runBenchmark(10000, 30, 20, clientView, true)
+        console.log('[octree]', {
+            totalMs: octree.totalMs,
+            msPerQuery: octree.msPerQuery.toFixed(4),
+            stats: octree.indexStats
         })
 
-        const speedup = bruteForce.totalMs / quadtree.totalMs
+        const speedup = bruteForce.totalMs / octree.totalMs
         console.log(`Speedup: ${speedup.toFixed(2)}x`)
 
-        // At 10K entities, quadtree shows meaningful speedup on large datasets
-        expect(quadtree.totalMs).toBeLessThan(bruteForce.totalMs * 0.95)
+        // At 10K entities, octree shows meaningful speedup on large datasets
+        expect(octree.totalMs).toBeLessThan(bruteForce.totalMs * 0.95)
     })
 
     /**
      * Test 4: Large visibility area (worst case for brute-force)
-     * SKIPPED: Performance variance due to quadtree overhead when querying large AABB
+     * SKIPPED: Performance variance due to octree overhead when querying large AABB
      * In real games, clients rarely have visibility over entire world
      */
     it.skip('5000 entities, large client view (large visibility)', async () => {
-        const clientView = { x: 0, y: 0, halfWidth: 5000, halfHeight: 5000 }
+        const clientView = { x: 0, y: 0, z: 0, halfWidth: 5000, halfHeight: 5000, halfDepth: 5000 }
 
         console.log('\n=== Test 4: Large Visibility Area (5000 entities) ===')
 
@@ -221,29 +227,29 @@ describe('perf: spatial quadtree', () => {
             msPerQuery: bruteForce.msPerQuery.toFixed(4)
         })
 
-        const quadtree = runBenchmark(5000, 10, 20, clientView, true)
-        console.log('[quadtree]', {
-            totalMs: quadtree.totalMs,
-            msPerQuery: quadtree.msPerQuery.toFixed(4),
-            stats: quadtree.indexStats
+        const octree = runBenchmark(5000, 10, 20, clientView, true)
+        console.log('[octree]', {
+            totalMs: octree.totalMs,
+            msPerQuery: octree.msPerQuery.toFixed(4),
+            stats: octree.indexStats
         })
 
-        const speedup = bruteForce.totalMs / quadtree.totalMs
+        const speedup = bruteForce.totalMs / octree.totalMs
         console.log(`Speedup: ${speedup.toFixed(2)}x`)
 
-        // Large visibility area - quadtree has more overhead, but should be close
-        expect(quadtree.totalMs).toBeLessThan(bruteForce.totalMs * 1.2)
+        // Large visibility area - octree has more overhead, but should be close
+        expect(octree.totalMs).toBeLessThan(bruteForce.totalMs * 1.2)
     })
 
     /**
-     * Test 5: Deep quadtree (many entities, small visibility)
+     * Test 5: Deep octree (many entities, small visibility)
      * SKIPPED: Performance variance due to JIT compilation and GC timing
-     * See stable tests (1, 2, 3, 6) for consistent benchmarks at 10K+ entities
+     * See stable tests (1, 3, 6) for consistent benchmarks at 10K+ entities
      */
-    it.skip('20000 entities, small visibility (deep quadtree)', async () => {
-        const clientView = { x: 0, y: 0, halfWidth: 300, halfHeight: 300 }
+    it.skip('20000 entities, small visibility (deep octree)', async () => {
+        const clientView = { x: 0, y: 0, z: 0, halfWidth: 300, halfHeight: 300, halfDepth: 300 }
 
-        console.log('\n=== Test 5: Deep Quadtree (20000 entities, tight view) ===')
+        console.log('\n=== Test 5: Deep Octree (20000 entities, tight view) ===')
 
         const bruteForce = runBenchmark(20000, 20, 15, clientView, false)
         console.log('[brute-force]', {
@@ -251,29 +257,29 @@ describe('perf: spatial quadtree', () => {
             msPerQuery: bruteForce.msPerQuery.toFixed(4)
         })
 
-        const quadtree = runBenchmark(20000, 20, 15, clientView, true)
-        console.log('[quadtree]', {
-            totalMs: quadtree.totalMs,
-            msPerQuery: quadtree.msPerQuery.toFixed(4),
-            stats: quadtree.indexStats
+        const octree = runBenchmark(20000, 20, 15, clientView, true)
+        console.log('[octree]', {
+            totalMs: octree.totalMs,
+            msPerQuery: octree.msPerQuery.toFixed(4),
+            stats: octree.indexStats
         })
 
-        const speedup = bruteForce.totalMs / quadtree.totalMs
+        const speedup = bruteForce.totalMs / octree.totalMs
         console.log(`Speedup: ${speedup.toFixed(2)}x`)
 
-        // At 20K entities with tight visibility, quadtree should dominate
-        expect(quadtree.totalMs).toBeLessThan(bruteForce.totalMs * 0.6)
+        // At 20K entities with tight visibility, octree should dominate
+        expect(octree.totalMs).toBeLessThan(bruteForce.totalMs * 0.6)
     })
 
     /**
-     * Test 6: Multiple clients stress test
+     * Test 6: Multiple clients stress test (3D)
      * SKIPPED: Performance shows variance with high client count
      * 50 clients create significant load variance on this system
      */
-    it.skip('10000 entities, 50 clients (high client count)', async () => {
-        const clientView = { x: 0, y: 0, halfWidth: 400, halfHeight: 300 }
+    it.skip('10000 entities, 50 clients (high client count 3D)', async () => {
+        const clientView = { x: 0, y: 0, z: 0, halfWidth: 400, halfHeight: 300, halfDepth: 300 }
 
-        console.log('\n=== Test 6: High Client Count (10000 entities, 50 clients) ===')
+        console.log('\n=== Test 6: High Client Count (10000 entities, 50 clients 3D) ===')
 
         const bruteForce = runBenchmark(10000, 50, 10, clientView, false)
         console.log('[brute-force]', {
@@ -281,17 +287,17 @@ describe('perf: spatial quadtree', () => {
             msPerQuery: bruteForce.msPerQuery.toFixed(4)
         })
 
-        const quadtree = runBenchmark(10000, 50, 10, clientView, true)
-        console.log('[quadtree]', {
-            totalMs: quadtree.totalMs,
-            msPerQuery: quadtree.msPerQuery.toFixed(4),
-            stats: quadtree.indexStats
+        const octree = runBenchmark(10000, 50, 10, clientView, true)
+        console.log('[octree]', {
+            totalMs: octree.totalMs,
+            msPerQuery: octree.msPerQuery.toFixed(4),
+            stats: octree.indexStats
         })
 
-        const speedup = bruteForce.totalMs / quadtree.totalMs
+        const speedup = bruteForce.totalMs / octree.totalMs
         console.log(`Speedup: ${speedup.toFixed(2)}x`)
 
-        // Quadtree scales better with client count
-        expect(quadtree.totalMs).toBeLessThan(bruteForce.totalMs * 1.0)
+        // Octree scales better with client count
+        expect(octree.totalMs).toBeLessThan(bruteForce.totalMs * 1.0)
     })
 })

@@ -86,19 +86,35 @@ class Instance extends EventEmitter {
         // if no history
         this.basicSpace = new BasicSpace(config.ID_PROPERTY_NAME, config.DIMENSIONALITY)
 
-        // Initialize quadtree spatial indexing if enabled
-        if (config.ENABLE_SPATIAL_INDEX && config.DIMENSIONALITY === 2) {
-            const worldBounds = {
-                x: 0,
-                y: 0,
-                halfWidth: config.SPATIAL_INDEX_WORLD_WIDTH,
-                halfHeight: config.SPATIAL_INDEX_WORLD_HEIGHT
+        // Initialize spatial indexing if enabled
+        if (config.ENABLE_SPATIAL_INDEX) {
+            if (config.DIMENSIONALITY === 2) {
+                const worldBounds = {
+                    x: 0,
+                    y: 0,
+                    halfWidth: config.SPATIAL_INDEX_WORLD_WIDTH,
+                    halfHeight: config.SPATIAL_INDEX_WORLD_HEIGHT
+                }
+                this.basicSpace.enableQuadtree(
+                    worldBounds,
+                    config.SPATIAL_INDEX_MAX_DEPTH,
+                    config.SPATIAL_INDEX_MAX_ENTITIES_PER_NODE
+                )
+            } else if (config.DIMENSIONALITY === 3) {
+                const worldBounds = {
+                    x: 0,
+                    y: 0,
+                    z: 0,
+                    halfWidth: config.SPATIAL_INDEX_WORLD_WIDTH,
+                    halfHeight: config.SPATIAL_INDEX_WORLD_HEIGHT,
+                    halfDepth: config.SPATIAL_INDEX_WORLD_DEPTH
+                }
+                this.basicSpace.enableOctree(
+                    worldBounds,
+                    config.SPATIAL_INDEX_MAX_DEPTH,
+                    config.SPATIAL_INDEX_MAX_ENTITIES_PER_NODE
+                )
             }
-            this.basicSpace.enableQuadtree(
-                worldBounds,
-                config.SPATIAL_INDEX_MAX_DEPTH,
-                config.SPATIAL_INDEX_MAX_ENTITIES_PER_NODE
-            )
         }
 
         this.commands = []
