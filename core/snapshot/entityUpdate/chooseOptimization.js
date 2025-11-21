@@ -3,6 +3,9 @@ import compare from '../../protocol/compare.js';
 import getValue from '../../protocol/getValue.js';
 import countBatchesBits from '../writer/countBatchesBits.js';
 import countSinglePropsBits from '../writer/countSinglePropsBits.js';
+import BinaryType from '../../binary/BinaryType.js';
+import Binary from '../../binary/Binary.js';
+import countPropBits from '../../protocol/countBits/countPropBits.js';
 
 function locateDiff(prop, diffs) {
     for (var i = 0; i < diffs.length; i++) {
@@ -43,58 +46,63 @@ export default function chooseOptimization(idPropertyName, oldProxy, newProxy, p
     var maxKeys = protocol.config?.BATCH_MAX_KEYS === Infinity ? Infinity : protocol.config.BATCH_MAX_KEYS
     var isBatchValid = enableBatch && diffs.length >= minUpdates && diffs.length <= maxKeys && isBatchAtomiclyValid(diffs, protocol)
 
-    // Build candidate batch only if basic validity passes; then perform bit-size comparison heuristic
+    // Build candidate batch only if basic validity passes; then perform incremental bit-size comparison heuristic
     if (isBatchValid) {
-        var candidateBatch = {
-            id: id,
-            idType: idType,
-            updates: []
+        // Pre-compute lower bound for singles (includes header when >0 diffs)
+        var singleBitsBound = 0
+        if (diffs.length > 0) {
+            singleBitsBound += Binary[BinaryType.UInt8].bits // chunk marker
+            singleBitsBound += Binary[BinaryType.UInt16].bits // count
         }
-        protocol.batch.keys.forEach(key => {
-            var diff = locateDiff(key, diffs)
-            var opt = protocol.batch.properties[key]
-            var propData = protocol.properties[key]
-            var value = 0
-            if (diff) {
-                value = opt.delta ? (diff.is - diff.was) : diff.is
-            } else if (!opt.delta) {
-                // include unchanged absolute properties in batch for current semantics
-                value = newProxy[key]
-            }
-            candidateBatch.updates.push({
-                isDelta: opt.delta,
-                value: value,
-                valueType: opt.type,
-                prop: key,
-                path: propData.path
-            })
-        })
-
-        // Estimate bits for candidate batch vs individual single prop updates
-        var singlePropPlaceholders = new Array(diffs.length)
         for (var i = 0; i < diffs.length; i++) {
-            var d = diffs[i]
-            var propData = protocol.properties[d.prop]
-            singlePropPlaceholders[i] = {
-                id: id,
-                idType: idType,
-                key: propData.key,
-                keyType: protocol.keyType,
-                value: d.is,
-                valueType: propData.type,
-                prop: d.prop,
-                path: propData.path
-            }
+            var d2 = diffs[i]
+            var propMeta2 = protocol.properties[d2.prop]
+            singleBitsBound += Binary[idType].bits
+            singleBitsBound += Binary[protocol.keyType].bits
+            singleBitsBound += countPropBits(propMeta2.type, undefined, d2.is)
         }
 
-        var batchBits = countBatchesBits([candidateBatch])
-        var singleBits = countSinglePropsBits(singlePropPlaceholders)
+        var candidateUpdates = []
+        var batchBitsRunning = 0
+        // include header and id bits (countBatchesBits would also include these, but we do manual incremental early exit)
+        if (diffs.length > 0) {
+            batchBitsRunning += Binary[BinaryType.UInt8].bits // chunk marker
+            batchBitsRunning += Binary[BinaryType.UInt16].bits // count
+            batchBitsRunning += Binary[idType].bits // id once for batch
+        }
 
-        if (batchBits <= singleBits) {
-            formattedUpdates.batch.updates = candidateBatch.updates
-        } else {
-            // Batch rejected on size grounds; leave formattedUpdates.batch empty and fall back to singleProps below
-            isBatchValid = false
+        for (var k = 0; k < protocol.batch.keys.length; k++) {
+            var key = protocol.batch.keys[k]
+            var diffObj = locateDiff(key, diffs)
+            var optCfg = protocol.batch.properties[key]
+            var propMeta = protocol.properties[key]
+            var val = 0
+            if (diffObj) {
+                val = optCfg.delta ? (diffObj.is - diffObj.was) : diffObj.is
+            } else if (!optCfg.delta) {
+                val = newProxy[key]
+            } else {
+                continue // unchanged delta, skip entirely
+            }
+            // add bits cost of this update
+            batchBitsRunning += Binary[optCfg.type].bits
+            // Early exit: if batch already worse than singles, abort
+            if (batchBitsRunning > singleBitsBound) {
+                isBatchValid = false
+                candidateUpdates = []
+                break
+            }
+            candidateUpdates.push({
+                isDelta: optCfg.delta,
+                value: val,
+                valueType: optCfg.type,
+                prop: key,
+                path: propMeta.path
+            })
+        }
+
+        if (isBatchValid && candidateUpdates.length > 0) {
+            formattedUpdates.batch.updates = candidateUpdates
         }
     }
 
@@ -121,6 +129,15 @@ export default function chooseOptimization(idPropertyName, oldProxy, newProxy, p
                 prop: diff.prop,
                 path: diff.path
             }
+        }
+    }
+
+    // Instrumentation counters (lazy init)
+    if (enableBatch) {
+        protocol.stats = protocol.stats || { batchAttempts: 0, batchAccepted: 0 }
+        protocol.stats.batchAttempts++
+        if (formattedUpdates.batch.updates.length > 0) {
+            protocol.stats.batchAccepted++
         }
     }
 

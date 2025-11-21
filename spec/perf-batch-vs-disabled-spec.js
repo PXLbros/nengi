@@ -67,7 +67,11 @@ function runScenario(enableBatch, entityCount) {
     prev = curr.map(e => ({ ...e }))
   }
   const ms = Date.now() - start
-  return { ms, avgBytes: totalBytes / TICKS }
+  let acceptanceRate = null
+  if (enableBatch && protocol.stats) {
+    acceptanceRate = protocol.stats.batchAccepted / protocol.stats.batchAttempts
+  }
+  return { ms, avgBytes: totalBytes / TICKS, acceptanceRate }
 }
 
 function runSinglePropScenario(enableBatch, entityCount) {
@@ -98,7 +102,11 @@ function runSinglePropScenario(enableBatch, entityCount) {
     prev = curr.map(e => ({ ...e }))
   }
   const ms = Date.now() - start
-  return { ms, avgBytes: totalBytes / TICKS }
+  let acceptanceRate = null
+  if (enableBatch && protocol.stats) {
+    acceptanceRate = protocol.stats.batchAccepted / protocol.stats.batchAttempts
+  }
+  return { ms, avgBytes: totalBytes / TICKS, acceptanceRate }
 }
 
 describe('perf: batch enabled vs disabled', () => {
@@ -111,12 +119,13 @@ describe('perf: batch enabled vs disabled', () => {
       const disabledBytesPerEntity = (disabled.avgBytes / count).toFixed(2)
       const enabledBytesPerEntity = (enabled.avgBytes / count).toFixed(2)
       console.log(`[perf] entities:${count} disabled ms:${disabled.ms} ms/tick:${disabledMsPerTick} avgBytes:${disabled.avgBytes.toFixed(2)} bytes/entity:${disabledBytesPerEntity}`)
-      console.log(`[perf] entities:${count} enabled  ms:${enabled.ms} ms/tick:${enabledMsPerTick} avgBytes:${enabled.avgBytes.toFixed(2)} bytes/entity:${enabledBytesPerEntity}`)
+      const acceptanceRate = enabled.acceptanceRate ? enabled.acceptanceRate.toFixed(2) : 'n/a'
+      console.log(`[perf] entities:${count} enabled  ms:${enabled.ms} ms/tick:${enabledMsPerTick} avgBytes:${enabled.avgBytes.toFixed(2)} bytes/entity:${enabledBytesPerEntity} batchAccept:${acceptanceRate}`)
     }
     // single property mutation scenario
     const singleDisabled = runSinglePropScenario(false, 500)
     const singleEnabled = runSinglePropScenario(true, 500)
     console.log(`[perf-single-prop] 500 disabled ms:${singleDisabled.ms} ms/tick:${(singleDisabled.ms/TICKS).toFixed(2)} avgBytes:${singleDisabled.avgBytes.toFixed(2)} bytes/entity:${(singleDisabled.avgBytes/500).toFixed(2)}`)
-    console.log(`[perf-single-prop] 500 enabled  ms:${singleEnabled.ms} ms/tick:${(singleEnabled.ms/TICKS).toFixed(2)} avgBytes:${singleEnabled.avgBytes.toFixed(2)} bytes/entity:${(singleEnabled.avgBytes/500).toFixed(2)}`)
+    console.log(`[perf-single-prop] 500 enabled  ms:${singleEnabled.ms} ms/tick:${(singleEnabled.ms/TICKS).toFixed(2)} avgBytes:${singleEnabled.avgBytes.toFixed(2)} bytes/entity:${(singleEnabled.avgBytes/500).toFixed(2)} batchAccept:${singleEnabled.acceptanceRate ? singleEnabled.acceptanceRate.toFixed(2) : 'n/a'}`)
   })
 })
