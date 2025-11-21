@@ -97,14 +97,16 @@ There are no automated performance benchmarks.
 - [x] Added diff logic tests for `chooseOptimization` (`spec/chooseOptimization-spec.js`) covering no-change, single-change, multi-change scenarios. Added independent validation tests for `isBatchAtomiclyValid` with optimization schemas.
 - [x] Added Interpolator sequence test (`spec/interpolator-spec.js`) verifying correct value interpolation between snapshots.
 - [x] Added Predictor tests (`spec/predictor-spec.js`) covering numeric match/no-error, numeric drift over/under epsilon, and string reconciliation.
+- [x] Added Predictor cleanup aging test (`spec/predictor-cleanup-spec.js`) validating frame eviction threshold.
+- [x] Added snapshot edge tests (`spec/snapshot-edge-spec.js`) for empty, delete-only, and partial update snapshots.
 - [ ] Add snapshot reader/writer isolated roundtrip tests.
 - [ ] Add direct tests for diff optimization logic in `chooseOptimization.js` (single vs batch vs none).
 
 ### Next Planned Steps
 
-1. Add drift correction/cleanup scenario tests for `Predictor.cleanUp` (aging out old frames).
-2. Introduce property-based randomized prediction vs authoritative fuzz tests (numeric & string).
-3. Add isolated snapshot reader/writer tests beyond roundtrip (edge cases: empty updates, deletes-only, batch optimizations).
-4. Begin integration harness: start `Instance`, connect bot client, verify end-to-end entity creation/update/prediction.
-5. Add performance baseline benchmarks before enabling batching optimization.
+1. Introduce property-based randomized prediction vs authoritative fuzz tests (numeric & string).
+2. Add snapshot batch optimization test once batching re-enabled.
+3. Begin integration harness: start `Instance`, connect bot client, verify end-to-end entity creation/update/prediction consistency.
+4. Add performance baseline benchmarks before enabling batching optimization.
+5. Add tests for transfer/handshake buffers (createHandshake, readConnectionResponse) to catch protocol regressions.
 
