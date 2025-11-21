@@ -7,7 +7,9 @@
     "browser": "indexBrowser.js",
     "scripts": {
         "test": "vitest run",
-        "test:watch": "vitest"
+        "test:watch": "vitest",
+        "yalc:watch": "nodemon -x './scripts/yalc-push.sh'",
+        "yalc:push": "./scripts/yalc-push.sh"
     },
     "homepage": "https://timetocode.com/nengi",
     "repository": {
@@ -38,6 +40,8 @@
         "ws": "^8.17.0"
     },
     "devDependencies": {
-        "vitest": "^4.0.12"
+        "vitest": "^4.0.12",
+        "yalc": "^1.0.0-pre.53",
+        "nodemon": "^3.0.1"
     }
 }
