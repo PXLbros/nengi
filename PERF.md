@@ -95,6 +95,7 @@ There are no automated performance benchmarks.
  - [x] Added exhaustive randomized fuzz tests for `BitBuffer.getBits/setBits` over mixed offsets & lengths in `spec/binary-fuzz-spec.js` (unsigned & signed 2-32 bits).
  - [x] Added snapshot writer/reader roundtrip test (`spec/snapshot-roundtrip-spec.js`) verifying entity creation and single property update integrity.
 - [x] Added diff logic tests for `chooseOptimization` (`spec/chooseOptimization-spec.js`) covering no-change, single-change, multi-change scenarios. Added independent validation tests for `isBatchAtomiclyValid` with optimization schemas.
+- [x] Added Interpolator sequence test (`spec/interpolator-spec.js`) verifying correct value interpolation between snapshots.
 - [ ] Add snapshot reader/writer isolated roundtrip tests.
 - [ ] Add direct tests for diff optimization logic in `chooseOptimization.js` (single vs batch vs none).
 
