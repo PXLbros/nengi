@@ -78,6 +78,105 @@ Trade-offs & Heuristic:
 
 Disable anytime by setting the flag to `false`; games not enabling the flag retain legacy behavior. Adjust or remove batching dynamically by changing config on protocol creation.
 
+### Batch Configuration Options
+
+Below are all batch-related config options and guidance on when to adjust them. These are set per protocol via the `config` object you pass into `new Protocol(...)`.
+
+| Option | Type | Default | Purpose |
+|--------|------|---------|---------|
+| `ENABLE_BATCH_OPTIMIZATION` | boolean | `false` | Master toggle; when `true` nengi evaluates batching heuristics. When `false` legacy per-property updates only. |
+| `BATCH_MIN_UPDATES` | number | `2` (adaptive) | Minimum number of changed properties before a batch will be considered. Dynamically tuned based on acceptance rate (2..8). |
+| `BATCH_MAX_KEYS` | number | `Infinity` | Upper bound on how many protocol keys can be placed in a single batch attempt. Use to cap batch construction cost. |
+| `BATCH_RETRY_COOLDOWN_TICKS` | number | `0` | Ticks to wait after a rejected batch before trying again for the same entity (reduces repeated failed attempts). |
+
+#### How Batching Works (Recap)
+1. Collect diffs for the entity. If count < `BATCH_MIN_UPDATES` -> use single property updates.
+2. If count within range and batching enabled, build candidate batch incrementally.
+3. Early-exit if estimated batch bit size exceeds cost of individual updates.
+4. If rejected: apply cooldown (`BATCH_RETRY_COOLDOWN_TICKS`) and increment attempts; adaptive logic may raise `BATCH_MIN_UPDATES`.
+5. Acceptance stats drive adaptive tuning of `BATCH_MIN_UPDATES` (after >20 attempts):
+    - Acceptance rate < 20%: increase min up to 8.
+    - Acceptance rate > 80%: decrease min down to 2.
+
+#### Quick Tuning Recipes
+
+1. Few Properties, One Changes Often (e.g. only `x` moves every tick):
+    - Symptom: Batches add overhead for single-field updates.
+    - Action: Keep `ENABLE_BATCH_OPTIMIZATION: true` but set `BATCH_MIN_UPDATES: 3` (or let adaptive raise it). Ensures single-field diffs stay lean.
+
+2. Many Small Delta Fields (e.g. `x,y,vx,vy,hp,mana` all twitchy):
+    - Goal: Compress repeated id/key markers; batch likely smaller.
+    - Action: `ENABLE_BATCH_OPTIMIZATION: true`, leave `BATCH_MIN_UPDATES: 2`, keep `BATCH_MAX_KEYS: Infinity` unless protocol very large.
+
+3. Large Protocol, Occasional Wide Changes (20+ properties but usually only 4-6 change):
+    - Symptom: Batch attempts scan many keys → CPU cost; early-exits frequent.
+    - Action: Set `BATCH_MAX_KEYS: 8` to cap per-attempt work. Adaptive min will adjust; optionally start with `BATCH_MIN_UPDATES: 3`.
+
+4. Frequent Rejections (low acceptance rate printed in perf logs):
+    - Symptom: Acceptance < 20%, lots of wasted attempts.
+    - Action: Increase `BATCH_MIN_UPDATES` manually (e.g. +1) or rely on adaptive; consider small `BATCH_RETRY_COOLDOWN_TICKS` (2–5) if churn is high.
+
+5. One Heavy Absolute Property (large numeric or string) + light deltas:
+    - Symptom: Batch wins only when several deltas change; single delta + heavy absolute inflates batch.
+    - Action: Raise `BATCH_MIN_UPDATES` (3–4). If still many failed attempts, add cooldown (3 ticks) to avoid repeated rebuild.
+
+6. Bursty State Changes (waves where many props change together):
+    - Goal: Capture bursts efficiently; ignore sparse ticks.
+    - Action: Keep min low (2) so adaptive can decrease after burst success; optionally set cooldown to 0 to capitalize immediately on bursts.
+
+#### Example Config Scenarios
+
+```js
+// Lean single-movement protocol
+const configSingleMove = {
+  ID_PROPERTY_NAME: 'id',
+  ID_BINARY_TYPE: nengi.UInt16,
+  TYPE_PROPERTY_NAME: 'type',
+  ENABLE_BATCH_OPTIMIZATION: true,
+  BATCH_MIN_UPDATES: 3 // avoid batching lone x changes
+}
+
+// High-churn small deltas
+const configHighChurn = {
+  ID_PROPERTY_NAME: 'id',
+  ID_BINARY_TYPE: nengi.UInt16,
+  TYPE_PROPERTY_NAME: 'type',
+  ENABLE_BATCH_OPTIMIZATION: true,
+  BATCH_MIN_UPDATES: 2,
+  BATCH_MAX_KEYS: Infinity
+}
+
+// Large protocol, limit construction cost
+const configLargeProto = {
+  ID_PROPERTY_NAME: 'id',
+  ID_BINARY_TYPE: nengi.UInt16,
+  TYPE_PROPERTY_NAME: 'type',
+  ENABLE_BATCH_OPTIMIZATION: true,
+  BATCH_MIN_UPDATES: 3,
+  BATCH_MAX_KEYS: 8,
+  BATCH_RETRY_COOLDOWN_TICKS: 3
+}
+
+// Heavy absolute field causing rejections
+const configHeavyAbsolute = {
+  ID_PROPERTY_NAME: 'id',
+  ID_BINARY_TYPE: nengi.UInt16,
+  TYPE_PROPERTY_NAME: 'type',
+  ENABLE_BATCH_OPTIMIZATION: true,
+  BATCH_MIN_UPDATES: 4,
+  BATCH_RETRY_COOLDOWN_TICKS: 5
+}
+```
+
+#### Monitoring
+When batching is enabled you can inspect `protocol.stats`:
+```js
+// After several ticks
+console.log(protocol.stats) // { batchAttempts: 123, batchAccepted: 87 }
+const acceptance = protocol.stats.batchAccepted / protocol.stats.batchAttempts
+```
+Use the acceptance rate to decide if manual tuning is necessary or if adaptive logic suffices.
+
 
 
 ## Usage
