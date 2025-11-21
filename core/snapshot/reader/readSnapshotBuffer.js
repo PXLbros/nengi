@@ -117,7 +117,7 @@ function readSnapshotBuffer(arrayBuffer, protocols, config, connectCallback, tra
                 snapshot.updateEntities.partial = singleProps
                 break
             case Chunk.UpdateEntitiesOptimized:
-                var batches = readBatches(bitStream, protocolResolver)
+                var batches = readBatches(bitStream, protocolResolver, config)
                 //console.log('BATCHES', batches)
                 snapshot.updateEntities.optimized = batches
                 break

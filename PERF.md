@@ -8,13 +8,36 @@ The Nengi codebase is already heavily optimized, with a focus on binary serializ
 
 ### 1. Re-enable and Validate Batched Updates
 
-**Observation:**
-The entity update optimization logic in `core/snapshot/entityUpdate/chooseOptimization.js` has a feature for batching property updates, which is currently disabled (`var isBatchValid = false`). Batching is a powerful optimization that reduces the overhead of sending multiple small updates by combining them into a single, larger update. The logic to check for batch validity exists in `core/snapshot/entityUpdate/isBatchAtomiclyValid.js` and appears to be correct.
+**Status:**
+Batching logic has been re-enabled and gated behind `ENABLE_BATCH_OPTIMIZATION` (default: disabled) on the `Protocol` config. When enabled and valid, grouped updates are emitted via `updateEntities.optimized`; when disabled or invalid, diffs fall back to `updateEntities.partial`.
 
-**Recommendation:**
-- Re-enable the `isBatchAtomiclyValid` check in `chooseOptimization.js`.
-- Thoroughly test the batching functionality to ensure it is working as expected under various conditions (e.g., with different entity protocols and update patterns).
-- Benchmark the performance with and without batching to quantify the improvement. This should be the highest priority performance enhancement to investigate.
+**Validation Implemented:**
+- Unit tests for diff selection (`chooseOptimization-batch-spec.js`, stability & toggle behavior).
+- Writer snapshot size delta test (`snapshot-writer-batch-toggle-spec.js`) confirming additional bytes only when batches present.
+- Full write/read roundtrip for batch (`snapshot-batch-roundtrip-spec.js`) verifying delta and absolute values survive serialization.
+- Reader bug fixed (config now passed into batch read path).
+- Mixed snapshot test (`snapshot-mixed-updates-spec.js`) validating coexistence of single property and batch updates in one snapshot.
+- Non-assertive perf comparison (`perf-batch-vs-disabled-spec.js`) logs ms & average buffer size for 500 entities over 50 ticks.
+
+**Remaining Risks / Follow-ups:**
+- Chunk marker visibility test replaced by size-based assertion (raw marker byte not yet isolated in buffer; low impact but could add bit-level parser test later).
+- Need perf comparison (batch vs singleProps) under high-entity churn to quantify savings.
+- Add coexistence test mixing singleProps & optimized batches in same snapshot.
+
+**Next Actions:**
+1. Benchmark enabled vs disabled across varying diff counts.
+2. Expand perf benchmark matrix (entity counts, properties, delta frequency) and record results here.
+3. Document toggle in README/usage examples.
+4. Add bit-level chunk marker verification helper (optional) to restore direct marker assertion.
+
+### Current Batching Perf Snapshot (dev machine)
+
+| Scenario | Entities | Ticks | ENABLE_BATCH_OPTIMIZATION | Total ms | Avg Bytes/Snapshot |
+|----------|----------|-------|---------------------------|----------|--------------------|
+| Baseline | 500      | 50    | false                     | ~27 ms   | ~2948 bytes        |
+| Batched  | 500      | 50    | true                      | ~25 ms   | ~3569 bytes        |
+
+Interpretation: With current schema & mutation pattern batches increase snapshot byte size (due to always sending full batch properties) but shave a small amount of CPU time (~7% here). Further tuning of opt schema (e.g., limiting batch keys to frequently changing props) should reduce size overhead and improve win. More representative workloads needed.
 
 ### 2. Eliminate Buffer Copying in WebSocket Message Handling
 
