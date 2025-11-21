@@ -14,6 +14,7 @@ import createHandshakeBuffer from '../snapshot/writer/createHandshakeBuffer.js'
 import consoleLogLogo from '../common/consoleLogLogo.js'
 import metaConfig from '../common/metaConfig.js'
 import NoInterpsMessage from '../common/NoInterpsMessage.js'
+import { ArrayPool } from '../common/ArrayPool.js'
 import Sleep from './Sleep.js'
 
 import BasicSpace from './BasicSpace.js'
@@ -139,11 +140,11 @@ class Instance extends EventEmitter {
 
         this.debugCount = 0
 
-        // Simple reusable array pool for snapshot construction
-        this._arrayPool = []
-        this._maxPooledArrays = typeof config.SNAPSHOT_ARRAY_POOL_MAX === 'number' ? config.SNAPSHOT_ARRAY_POOL_MAX : 64
-        this._acquireArray = () => (this._arrayPool.pop() || [])
-        this._releaseArray = (arr) => { if (arr) { arr.length = 0; if (this._arrayPool.length < this._maxPooledArrays) { this._arrayPool.push(arr) } } }
+        // Reusable array pool for snapshot construction
+        const poolMaxSize = typeof config.SNAPSHOT_ARRAY_POOL_MAX === 'number' ? config.SNAPSHOT_ARRAY_POOL_MAX : 64
+        this._arrayPool = new ArrayPool(poolMaxSize)
+        this._acquireArray = () => this._arrayPool.acquire()
+        this._releaseArray = (arr) => this._arrayPool.release(arr)
 
         if (!config.HIDE_LOGO) {
             consoleLogLogo()
