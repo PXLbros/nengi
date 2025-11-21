@@ -16,7 +16,7 @@ function WorldState(tick, timeBetweenSnapshots, snapshot, previousWorldState, co
     this.entities = new EDictionary(config.ID_PROPERTY_NAME)
 
 
-    this.noInterps = []
+    this.noInterps = new Set()
 
     this.createEntities = []
     this.updateEntities = []
@@ -59,7 +59,7 @@ WorldState.prototype.init = function(snapshot, previousWorldState) {
     }
 
     snapshot.engineMessages.forEach(message => {
-        this.noInterps = message.ids
+        this.noInterps = new Set(message.ids)
     })
 
     snapshot.createEntities.forEach(entity => {

@@ -3,6 +3,14 @@ import createOptSchema from './createOptSchema.js';
 import selectUIntType from './selectUIntType.js';
 import Binary from '../binary/Binary.js';
 
+/**
+ * Basic protocol definition for network synchronization
+ * @param {Object} schemaConfig - Property definitions (prop: {type: nengi.Float32, ...})
+ * @param {Object} config - Engine config (passed from nengi.Instance)
+ * @param {Object} [optSchemaConfig] - Batch optimization properties
+ * @param {Object} [components] - Component configuration
+ * @param {boolean} [throwOnAdvancedTypes] - Strict type checking
+ */
 function Protocol(schemaConfig, config, optSchemaConfig, components, throwOnAdvancedTypes) {
 	//console.log('creating protocol from', schemaConfig, throwOnAdvancedTypes)
 	this.metaType = 'protocol'

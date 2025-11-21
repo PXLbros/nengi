@@ -1,7 +1,15 @@
 import EDictionary from '../../external/EDictionary.js'
 
-
+/**
+ * Channel for grouping entities and clients for selective broadcasting
+ */
 class Channel {
+    /**
+     * Creates a new Channel
+     * @param {Instance} instance - Parent nengi instance
+     * @param {number} id - Unique channel ID
+     * @throws {Error} If instance is not provided
+     */
     constructor(instance, id) {
         if (!instance) {
             throw new Error('Channel constructor must be passed an instance.')
@@ -45,7 +53,7 @@ class Channel {
     }
 
     unsubscribe(client) {
-        this.clients.delete(client)
+        this.clients.delete(client.id)
         client.unsubscribe(this)
     }
 

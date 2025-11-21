@@ -119,7 +119,7 @@ const interpolateSnapshots = (snapshots, currTimestamp, cache, predictor, config
             const binaryType = Binary[propData.type]
 
             if (entityA && entityB) {
-                if (propData.interp && snapshotB.noInterps.indexOf(id) === -1) {
+                if (propData.interp && !snapshotB.noInterps.has(id)) {
                     // CASE: entity value is marked for interp and changed in both A and B, correct value is interpolated
                     const valueA = getValue(entityA, update.path)
                     const valueB = getValue(entityB, update.path)

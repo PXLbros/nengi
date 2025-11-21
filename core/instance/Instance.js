@@ -24,7 +24,18 @@ import defaults from '../defaults.js'
 
 let protocols = null
 
+/**
+ * Server-side game instance that manages entities, clients, and network synchronization
+ * @extends EventEmitter
+ */
 class Instance extends EventEmitter {
+    /**
+     * Creates a new nengi Instance
+     * @param {Object} config - Engine configuration (merged with defaults)
+     * @param {number} config.port - WebSocket server port
+     * @param {Object} webConfig - Web server configuration
+     * @throws {Error} If config or webConfig is missing
+     */
     constructor(config, webConfig) {
         super()
         /* defaults */
@@ -88,7 +99,7 @@ class Instance extends EventEmitter {
         this.httpServer = null
         this.wsServer = null
 
-        this.noInterps = []
+        this.noInterps = new Set()
         this.transfers = {}
         this.createEntities = []
         this.deleteEntities = []
@@ -162,8 +173,12 @@ class Instance extends EventEmitter {
         }
     }
 
+    /**
+     * Mark an entity as not to be interpolated on clients
+     * @param {number} id - Entity ID
+     */
     noInterp(id) {
-        this.noInterps.push(id)
+        this.noInterps.add(id)
     }
 
     sleep(entity) {
@@ -260,6 +275,10 @@ class Instance extends EventEmitter {
         }
     }
 
+    /**
+     * Register a callback when a client connects
+     * @param {Function} callback - Called with (client) when connection is pending
+     */
     onConnect(callback) {
         this.connectCallback = callback
     }
@@ -392,6 +411,12 @@ class Instance extends EventEmitter {
         }
     }
 
+    /**
+     * Add an entity to the instance
+     * @param {Object} entity - Entity object with protocol property
+     * @returns {Object} The entity with assigned ID
+     * @throws {Error} If entity is missing protocol
+     */
     addEntity(entity) {
         if (!entity.protocol) {
             throw new Error('Object is missing a protocol or protocol was not supplied via config.')
@@ -405,6 +430,11 @@ class Instance extends EventEmitter {
         return entity
     }
 
+    /**
+     * Remove an entity from the instance
+     * @param {Object} entity - Entity to remove
+     * @returns {Object} The removed entity
+     */
     removeEntity(entity) {
         if (!this.config.USE_HISTORIAN) {
             this.basicSpace.entities.remove(entity)
@@ -565,6 +595,11 @@ class Instance extends EventEmitter {
         return proxy
     }
 
+    /**
+     * Main game loop tick - processes commands, snapshots entities, and broadcasts to clients
+     * Should be called once per frame
+     * @param {Function} [processServerCommands] - Optional callback to process game logic
+     */
     update(processServerCommands) {
         if (this._processCommandsBeforeSnapshot && typeof processServerCommands === 'function') {
             processServerCommands()
@@ -614,7 +649,7 @@ class Instance extends EventEmitter {
 
         delete this.proxyCache[this.tick - 20]
 
-        this.noInterps = []
+        this.noInterps = new Set()
         this.deleteEntities = []
         this.createEntities = []
         this.entityIdPool.update()
@@ -717,7 +752,7 @@ class Instance extends EventEmitter {
                 this.proxifyOrGetCachedProxyPerClient(client, entity, tick, false)
             }
 
-            if (this.noInterps.indexOf(id) !== -1) {
+            if (this.noInterps.has(id)) {
                 tempNoInterps.push(id)
             }
         }

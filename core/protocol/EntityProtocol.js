@@ -1,7 +1,14 @@
 import Protocol from './Protocol.js';
 //var config = require('../../config')
 
-
+/**
+ * Entity protocol definition - for syncing game objects across network
+ * Automatically adds type and ID properties
+ * @param {Object} schemaConfig - Property definitions (prop: {type: nengi.Float32, interp: true, ...})
+ * @param {Object} config - Engine config (passed from nengi.Instance)
+ * @param {Object} [components] - Component configuration
+ * @returns {Protocol} Entity protocol instance
+ */
 function EntityProtocol(schemaConfig, config, components) {
     schemaConfig[config.TYPE_PROPERTY_NAME] = {
         type: config.TYPE_BINARY_TYPE, 

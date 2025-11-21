@@ -7,7 +7,9 @@ function randomInt(min, max) {
 
 function LatencyRecord() {
     this.pingsSent = {}
-    this.latencies = []
+    this.latencies = new Array(5)
+    this.latencyCount = 0
+    this.latencyHead = 0
     this.averageLatency = 100 // default
 }
 
@@ -25,7 +27,11 @@ LatencyRecord.prototype.generatePingKey = function() {
 LatencyRecord.prototype.receivePong = function(pingKey) {
     if (this.pingsSent[pingKey]) {
         var latency = Date.now() - this.pingsSent[pingKey]
-        this.latencies.push(latency)
+        this.latencies[this.latencyHead] = latency
+        this.latencyHead = (this.latencyHead + 1) % 5
+        if (this.latencyCount < 5) {
+            this.latencyCount++
+        }
 
         //console.log('rec pong', latency)
 
@@ -38,17 +44,13 @@ LatencyRecord.prototype.receivePong = function(pingKey) {
 
 LatencyRecord.prototype.calculateAverageLatency = function() {
     var total = 0
-    for (var i = 0; i < this.latencies.length; i++) {
+    for (var i = 0; i < this.latencyCount; i++) {
         total += this.latencies[i]
     }
-    if (total > 0 && this.latencies.length > 0) {
-        this.averageLatency = total / this.latencies.length
+    if (total > 0 && this.latencyCount > 0) {
+        this.averageLatency = total / this.latencyCount
         //console.log('avg ping', this.averageLatency)
     }
-
-    while (this.latencies.length > 5) {
-        this.latencies.shift()
-    } 
 }
 
 

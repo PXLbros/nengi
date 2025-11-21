@@ -25,7 +25,7 @@ describe('Interpolator sequence', () => {
             updateEntities: [{ nid: 1, prop: 'value', path: ['value'], value: 10 }],
             createEntities: [entityA],
             deleteEntities: [],
-            noInterps: [],
+            noInterps: new Set(),
             processed: false,
             clientTick: 1,
             containsUpdateFor: () => false
@@ -37,7 +37,7 @@ describe('Interpolator sequence', () => {
             updateEntities: [{ nid: 1, prop: 'value', path: ['value'], value: 20 }],
             createEntities: [],
             deleteEntities: [],
-            noInterps: [],
+            noInterps: new Set(),
             processed: false,
             clientTick: 2,
             containsUpdateFor: (nid, prop) => true // ensure interpolation logic triggers
