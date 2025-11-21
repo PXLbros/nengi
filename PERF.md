@@ -91,7 +91,7 @@ There are no automated performance benchmarks.
 
 - [x] Initial assessment of existing binary roundtrip tests in `spec/binary-spec.js` (already covered core numeric & boolean types).
 - [x] Added dedicated boundary tests for integer types (`UInt8`, `Int8`, `UInt16`, `Int16`, `UInt32`, `Int32`) in `spec/binary-bounds-spec.js`, verifying `boundsCheck`, min/max roundtrip, and offset behavior.
-- [ ] Add tests for smaller bit-width integer variants (`UInt2`..`UInt12`, `Int2`..`Int12`).
+- [x] Added tests for smaller bit-width integer variants (`UInt2`..`UInt12`, `Int2`..`Int12`) via direct BitStream method checks in `spec/binary-smallwidth-spec.js`.
 - [ ] Add exhaustive randomized fuzz tests for `BitBuffer.getBits/setBits` over mixed offsets & lengths.
 - [ ] Add snapshot reader/writer isolated roundtrip tests.
 - [ ] Add direct tests for diff optimization logic in `chooseOptimization.js` (single vs batch vs none).
