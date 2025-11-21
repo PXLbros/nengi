@@ -46,6 +46,8 @@ class Instance extends EventEmitter {
             protocols = new ProtocolMap(config, metaConfig)
         }
         this.config = config
+        // Optional: process commands before or after snapshot
+        this._processCommandsBeforeSnapshot = typeof config.PROCESS_COMMANDS_BEFORE_SNAPSHOT === 'boolean' ? config.PROCESS_COMMANDS_BEFORE_SNAPSHOT : false
         this.transferPassword = webConfig.transferPassword
         this.protocols = protocols
         this.sleepManager = new Sleep()
@@ -557,7 +559,10 @@ class Instance extends EventEmitter {
         return proxy
     }
 
-    update() {
+    update(processServerCommands) {
+        if (this._processCommandsBeforeSnapshot && typeof processServerCommands === 'function') {
+            processServerCommands()
+        }
         if (this.config.USE_HISTORIAN) {
             this.historian.record(this.tick, this.entities.toArray(), this.localEvents)
         }
@@ -582,6 +587,10 @@ class Instance extends EventEmitter {
                 client.connection.send(buffer, true)
                 client.saveSnapshot(snapshot, this.protocols, this.tick)
             }
+        }
+
+        if (!this._processCommandsBeforeSnapshot && typeof processServerCommands === 'function') {
+            processServerCommands()
         }
 
         delete this.proxyCache[this.tick - 20]

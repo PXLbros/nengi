@@ -177,6 +177,54 @@ const acceptance = protocol.stats.batchAccepted / protocol.stats.batchAttempts
 ```
 Use the acceptance rate to decide if manual tuning is necessary or if adaptive logic suffices.
 
+### Command Processing Order (Advanced)
+By default server-side command application in examples/tests occurs outside `Instance.update()`. The optional config flag `PROCESS_COMMANDS_BEFORE_SNAPSHOT` integrates command processing directly into the tick cycle.
+
+```js
+const config = {
+    // ... other nengi config
+    PROCESS_COMMANDS_BEFORE_SNAPSHOT: true // default false
+}
+```
+
+When enabled and you pass a processing callback into `instance.update(processFn)`:
+1. Commands are applied before diffing & snapshot serialization – entity state changes appear in the same tick's snapshot.
+2. Lower end-to-end latency for command → state visibility.
+
+When disabled (default) and using `instance.update(processFn)`:
+1. Snapshot is built first, then commands are applied.
+2. Resulting state changes appear in the next tick's snapshot.
+
+If you do not supply a callback (`instance.update()`), behavior is unchanged; you can continue processing commands externally.
+
+Usage Example:
+```js
+function processServerCommands(instance) {
+    let next
+    while ((next = instance.getNextCommand())) {
+        next.commands.forEach(cmd => {
+            const player = /* lookup entity owned by next.client */
+            if (player) {
+                player.x += cmd.dx
+                player.y += cmd.dy
+            }
+        })
+    }
+}
+
+// Before-snapshot processing (low latency)
+instance.update(() => processServerCommands(instance))
+
+// After-snapshot processing (legacy timing)
+config.PROCESS_COMMANDS_BEFORE_SNAPSHOT = false
+instance.update(() => processServerCommands(instance))
+```
+
+Trade-offs:
+- Before snapshot: lower latency, but command side-effects influence interpolation immediately.
+- After snapshot: deterministic snapshot of pre-command state; useful if commands depend on authoritative validation finishing later.
+
+
 
 
 ## Usage
