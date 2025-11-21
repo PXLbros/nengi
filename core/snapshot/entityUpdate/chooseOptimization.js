@@ -42,9 +42,35 @@ export default function chooseOptimization(idPropertyName, oldProxy, newProxy, p
 
     // Use config option to control batch optimization
     var enableBatch = protocol.config?.ENABLE_BATCH_OPTIMIZATION === true
+    // Adaptive escalation: tune minUpdates based on batch acceptance rate
     var minUpdates = protocol.config?.BATCH_MIN_UPDATES || 2
+    if (enableBatch) {
+        protocol.stats = protocol.stats || { batchAttempts: 0, batchAccepted: 0 }
+        // Only adapt if enough attempts have occurred
+        if (protocol.stats.batchAttempts > 20) {
+            var acceptanceRate = protocol.stats.batchAccepted / protocol.stats.batchAttempts
+            // If acceptance rate is very low, increase minUpdates to reduce batch attempts
+            if (acceptanceRate < 0.2 && minUpdates < 8) {
+                minUpdates = Math.min(minUpdates + 1, 8)
+                protocol.config.BATCH_MIN_UPDATES = minUpdates
+            }
+            // If acceptance rate is high, decrease minUpdates to allow more batching
+            if (acceptanceRate > 0.8 && minUpdates > 2) {
+                minUpdates = Math.max(minUpdates - 1, 2)
+                protocol.config.BATCH_MIN_UPDATES = minUpdates
+            }
+        }
+    }
     var maxKeys = protocol.config?.BATCH_MAX_KEYS === Infinity ? Infinity : protocol.config.BATCH_MAX_KEYS
-    var isBatchValid = enableBatch && diffs.length >= minUpdates && diffs.length <= maxKeys && isBatchAtomiclyValid(diffs, protocol)
+    // Cooldown handling: if previous attempt rejected, skip until cooldown expires
+    protocol._cooldowns = protocol._cooldowns || new Map()
+    var entityId = id
+    var cooldownTicks = protocol.config.BATCH_RETRY_COOLDOWN_TICKS || 0
+    var nowTick = typeof newProxy.__nengiTick === 'number' ? newProxy.__nengiTick : 0 // fallback to 0 if not present
+    var nextAllowed = protocol._cooldowns.get(entityId) || 0
+
+    var cooldownActive = enableBatch && cooldownTicks > 0 && nowTick < nextAllowed
+    var isBatchValid = enableBatch && !cooldownActive && diffs.length >= minUpdates && diffs.length <= maxKeys && isBatchAtomiclyValid(diffs, protocol)
 
     // Build candidate batch only if basic validity passes; then perform incremental bit-size comparison heuristic
     if (isBatchValid) {
@@ -80,18 +106,23 @@ export default function chooseOptimization(idPropertyName, oldProxy, newProxy, p
             if (diffObj) {
                 val = optCfg.delta ? (diffObj.is - diffObj.was) : diffObj.is
             } else if (!optCfg.delta) {
-                val = newProxy[key]
+                // skip unchanged absolute properties (do not include in batch)
+                continue
             } else {
                 continue // unchanged delta, skip entirely
             }
             // add bits cost of this update
             batchBitsRunning += Binary[optCfg.type].bits
             // Early exit: if batch already worse than singles, abort
-            if (batchBitsRunning > singleBitsBound) {
-                isBatchValid = false
-                candidateUpdates = []
-                break
-            }
+                if (batchBitsRunning > singleBitsBound) {
+                    isBatchValid = false
+                    candidateUpdates = []
+                    // register cooldown if configured
+                    if (cooldownTicks > 0) {
+                        protocol._cooldowns.set(entityId, nowTick + cooldownTicks)
+                    }
+                    break
+                }
             candidateUpdates.push({
                 isDelta: optCfg.delta,
                 value: val,

@@ -21,6 +21,10 @@ function Protocol(schemaConfig, config, optSchemaConfig, components, throwOnAdva
 	if (typeof this.config.BATCH_MAX_KEYS !== 'number') {
 		this.config.BATCH_MAX_KEYS = Infinity
 	}
+	// cooldown ticks after a batch rejection before trying again (entity-level); default 0 disables
+	if (typeof this.config.BATCH_RETRY_COOLDOWN_TICKS !== 'number') {
+		this.config.BATCH_RETRY_COOLDOWN_TICKS = 0
+	}
 	this.hasOptimizations = false
 
 	var arr = []

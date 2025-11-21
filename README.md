@@ -54,6 +54,7 @@ Other templates:
 ## Batch Optimization (Experimental Toggle)
 Entity update snapshots can optionally group multiple property changes for the same entity into a single "optimized batch" chunk, reducing per-update overhead. This is gated behind a protocol config flag so existing games remain unchanged by default.
 
+
 Enable per protocol via the constructor: `new Protocol(schema, config, optSchema, ...)` where `config` includes:
 ```js
 const config = {
@@ -64,13 +65,16 @@ const config = {
     BATCH_MIN_UPDATES: 2 // minimum changed properties required before batching
 }
 ```
-When enabled nengi will attempt to batch property diffs when it is safe to do so (atomic validity rules). Properties defined in `optSchema` with `delta: true` are encoded as deltas in the batch, while absolute properties (`delta: false`) include their full value. If batching cannot be done safely the update falls back to individual per-property updates.
+When enabled, nengi will attempt to batch property diffs when it is safe to do so (atomic validity rules). Properties defined in `optSchema` with `delta: true` are encoded as deltas in the batch, while absolute properties (`delta: false`) include their full value. If batching cannot be done safely, the update falls back to individual per-property updates.
+
+**Adaptive Escalation:**
+When batching is enabled, the engine will automatically tune `BATCH_MIN_UPDATES` based on the batch acceptance rate. If batches are frequently rejected (acceptance rate < 20%), `BATCH_MIN_UPDATES` will increase (up to 8) to reduce batch attempts. If batches are frequently accepted (acceptance rate > 80%), `BATCH_MIN_UPDATES` will decrease (down to 2) to allow more batching. This dynamic adjustment helps optimize batch performance for your workload.
 
 Trade-offs & Heuristic:
 - Can reduce repeated markers & ids.
-- May increase size if batching triggers for single-property changes; mitigated by `BATCH_MIN_UPDATES` (default 2) which forces single-property diffs to remain partial updates.
+- May increase size if batching triggers for single-property changes; mitigated by `BATCH_MIN_UPDATES` (default 2, adaptively tuned).
 - Best for entities with several frequently changing delta-encoded numeric fields and few absolute fields.
-- Tune `BATCH_MIN_UPDATES` upward (e.g. 3) if batches are still too large relative to partial updates in your workload.
+- Tune `BATCH_MIN_UPDATES` manually or let adaptive escalation optimize for your workload.
 
 Disable anytime by setting the flag to `false`; games not enabling the flag retain legacy behavior. Adjust or remove batching dynamically by changing config on protocol creation.
 

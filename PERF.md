@@ -43,7 +43,11 @@ Batching logic has been re-enabled and gated behind `ENABLE_BATCH_OPTIMIZATION` 
 | 500 (single-prop) | 50 | false                | -                 | 17 ms    | 1478.60 bytes      |
 | 500 (single-prop) | 50 | true                 | 2                 | 11 ms    | 1478.60 bytes      |
 
-Interpretation: Introducing the `BATCH_MIN_UPDATES` heuristic (default 2) prevents batching for single-property changes, reducing average snapshot size compared to previous all-batch approach (notably at 100 & 500 entities). For large entity counts (2000) batching still increases CPU time—likely due to batch construction overhead; additional heuristics (e.g., upper bound on batch keys or dynamic size comparison) may be warranted. Single-property scenario shows identical size (heuristic forces partial path) with improved ms when batching enabled (overhead avoided). Further tuning could compare estimated bits before final selection.
+
+Interpretation: Introducing the `BATCH_MIN_UPDATES` heuristic (default 2, now adaptively tuned) prevents batching for single-property changes, reducing average snapshot size compared to previous all-batch approach (notably at 100 & 500 entities). For large entity counts (2000) batching still increases CPU time—likely due to batch construction overhead; additional heuristics (e.g., upper bound on batch keys or dynamic size comparison) may be warranted. Single-property scenario shows identical size (heuristic forces partial path) with improved ms when batching enabled (overhead avoided). Further tuning could compare estimated bits before final selection.
+
+**Adaptive Escalation:**
+Batch acceptance rate is now tracked and used to dynamically tune `BATCH_MIN_UPDATES`. If the acceptance rate drops below 20%, the minimum updates required for batching will increase (up to 8), reducing batch attempts. If the acceptance rate exceeds 80%, the minimum updates will decrease (down to 2), allowing more batching. This helps optimize batching for different workloads automatically.
 
 ### 2. Eliminate Buffer Copying in WebSocket Message Handling
 

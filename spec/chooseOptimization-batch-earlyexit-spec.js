@@ -45,15 +45,17 @@ const config = {
 }
 
 describe('chooseOptimization early-exit heuristic', () => {
-  it('falls back to single props when many unchanged absolutes inflate batch size', () => {
+  it('accepts batch when only delta properties change and unchanged absolutes are skipped', () => {
     const protocol = new Protocol(schema, { ...config }, optSchema, null, true)
     const oldProxy = { id: 1, a: 100, b: 200, c: 1, d:2, e:3, f:4, g:5, h:6, i:7, j:8, k:9, l:10 }
     const newProxy = { id: 1, a: 101, b: 199, c: 1, d:2, e:3, f:4, g:5, h:6, i:7, j:8, k:9, l:10 }
     const res = chooseOptimization('id', oldProxy, newProxy, protocol)
-    expect(res.batch.updates.length).toBe(0)
+    // Batch should contain only changed delta props a & b after skipping unchanged absolutes
+    expect(res.batch.updates.length).toBe(2)
+    const batchProps = res.batch.updates.map(u => u.prop).sort()
+    expect(batchProps).toEqual(['a','b'])
+    // No single props for a & b
     const singles = res.singleProps.filter(Boolean)
-    expect(singles.length).toBe(2)
-    const props = singles.map(s => s.prop).sort()
-    expect(props).toEqual(['a','b'])
+    expect(singles.length).toBe(0)
   })
 })
