@@ -96,13 +96,15 @@ There are no automated performance benchmarks.
  - [x] Added snapshot writer/reader roundtrip test (`spec/snapshot-roundtrip-spec.js`) verifying entity creation and single property update integrity.
 - [x] Added diff logic tests for `chooseOptimization` (`spec/chooseOptimization-spec.js`) covering no-change, single-change, multi-change scenarios. Added independent validation tests for `isBatchAtomiclyValid` with optimization schemas.
 - [x] Added Interpolator sequence test (`spec/interpolator-spec.js`) verifying correct value interpolation between snapshots.
+- [x] Added Predictor tests (`spec/predictor-spec.js`) covering numeric match/no-error, numeric drift over/under epsilon, and string reconciliation.
 - [ ] Add snapshot reader/writer isolated roundtrip tests.
 - [ ] Add direct tests for diff optimization logic in `chooseOptimization.js` (single vs batch vs none).
 
 ### Next Planned Steps
 
-1. Extend tests to cover small-width integer types and ensure no off-by-one errors in packing bits.
-2. Introduce randomized property-based tests (e.g., generate values within bounds, serialize/deserialize, assert equality) for robustness.
-3. Begin snapshot system unit tests (serialize/deserialize flow) before moving to integration tests.
-4. After core unit coverage improves, start client-side `Interpolator` sequence tests.
+1. Add drift correction/cleanup scenario tests for `Predictor.cleanUp` (aging out old frames).
+2. Introduce property-based randomized prediction vs authoritative fuzz tests (numeric & string).
+3. Add isolated snapshot reader/writer tests beyond roundtrip (edge cases: empty updates, deletes-only, batch optimizations).
+4. Begin integration harness: start `Instance`, connect bot client, verify end-to-end entity creation/update/prediction.
+5. Add performance baseline benchmarks before enabling batching optimization.
 
