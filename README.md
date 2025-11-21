@@ -220,6 +220,32 @@ config.PROCESS_COMMANDS_BEFORE_SNAPSHOT = false
 instance.update(() => processServerCommands(instance))
 ```
 
+### Additional Performance Toggles (Server-Side)
+These features improve throughput and reduce GC pressure. All are enabled by default; you can override them per `nengiConfig`.
+
+| Config Flag | Default | Effect |
+|-------------|---------|--------|
+| `ENABLE_OPTIMIZED_COMMAND_QUEUE` | `true` | Uses an O(1) head index instead of `Array.shift()` for command dequeue (large command volumes see >100x perf vs shift in benchmarks). |
+| `SNAPSHOT_ARRAY_POOL_MAX` | `64` | Upper bound of recycled snapshot array structures to reduce per-tick allocations. Increase for very high client counts; decrease to minimize memory retention. |
+
+#### Zero-Copy Incoming Messages
+Incoming WebSocket binary frames are parsed directly from the provided `ArrayBuffer` (uWebSockets.js) or a view derived from a `Buffer` (ws) without creating a duplicate `Buffer.from(message)` on the server. This reduces allocation and GC churn on busy servers. No flag required; the behavior is automatic.
+
+#### Snapshot Array Pooling
+Server snapshot construction reuses small arrays (messages, jsons, create/delete/update lists). Arrays are released immediately after serialization and not retained per client, preventing accumulation but lowering allocation frequency. If you need to inspect server snapshots post-send for instrumentation, disable pooling by setting `SNAPSHOT_ARRAY_POOL_MAX: 0` or clone arrays before they are released.
+
+#### Command Queue Optimization
+For extreme command ingestion (thousands of commands/tick) set `ENABLE_OPTIMIZED_COMMAND_QUEUE: true` (default). If you prefer legacy behavior or need array semantics, set it to `false`.
+
+Example:
+```js
+const nengiConfig = {
+    // ... existing config
+    ENABLE_OPTIMIZED_COMMAND_QUEUE: true,
+    SNAPSHOT_ARRAY_POOL_MAX: 128 // enlarge pool if many concurrent clients
+}
+```
+
 Trade-offs:
 - Before snapshot: lower latency, but command side-effects influence interpolation immediately.
 - After snapshot: deterministic snapshot of pre-command state; useful if commands depend on authoritative validation finishing later.

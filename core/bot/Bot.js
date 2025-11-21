@@ -68,7 +68,7 @@ class Bot extends EventEmitter {
         /* ping */
         if (snapshot.pingKey !== -1) {
             var pongBuffer = createPongBuffer(snapshot.pingKey)
-            this.websocket.send(pongBuffer.byteArray)
+            this.websocket.send(Buffer.from(pongBuffer.byteArray))
         }
         if (snapshot.avgLatency !== -1) {
             this.averagePing = snapshot.avgLatency
@@ -104,11 +104,14 @@ class Bot extends EventEmitter {
         }
 
         this.websocket.on('open', () => {
-            this.websocket.send(createHandshakeBuffer(handshake).byteArray)
+            const handshakeBuffer = createHandshakeBuffer(handshake)
+            const bufferToSend = Buffer.from(handshakeBuffer.byteArray)
+            console.log('Bot: WebSocket opened, sending handshake buffer (size: %d bytes)', bufferToSend.length)
+            this.websocket.send(bufferToSend)
         })
 
         this.websocket.on('error', (err) => {
-            console.log('WebSocket error', err)
+            console.error('WebSocket error', err)
         })
 
         this.websocket.on('close', () => {
@@ -138,11 +141,14 @@ class Bot extends EventEmitter {
         }
 
         this.websocket.on('open', () => {
-            this.websocket.send(createHandshakeBuffer(handshake).byteArray)
+            const handshakeBuffer = createHandshakeBuffer(handshake)
+            const bufferToSend = Buffer.from(handshakeBuffer.byteArray)
+            console.log('Bot: MockConnect WebSocket opened, sending handshake buffer (size: %d bytes)', bufferToSend.length)
+            this.websocket.send(bufferToSend)
         })
 
         this.websocket.on('error', (err) => {
-            console.log('WebSocket error', err)
+            console.error('WebSocket error', err)
         })
 
         this.websocket.on('close', () => {

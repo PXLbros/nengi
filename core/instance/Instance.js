@@ -97,6 +97,12 @@ class Instance extends EventEmitter {
 
         this.debugCount = 0
 
+        // Simple reusable array pool for snapshot construction
+        this._arrayPool = []
+        this._maxPooledArrays = typeof config.SNAPSHOT_ARRAY_POOL_MAX === 'number' ? config.SNAPSHOT_ARRAY_POOL_MAX : 64
+        this._acquireArray = () => (this._arrayPool.pop() || [])
+        this._releaseArray = (arr) => { if (arr) { arr.length = 0; if (this._arrayPool.length < this._maxPooledArrays) { this._arrayPool.push(arr) } } }
+
         if (!config.HIDE_LOGO) {
             consoleLogLogo()
         }
@@ -185,7 +191,7 @@ class Instance extends EventEmitter {
             var commandMessage = readCommandBuffer(message, this.protocols, this.config)
         } catch (err) {
             if (err) {
-                console.log('onMessage error, disconnecting client', err)
+                console.error('onMessage error, disconnecting client', err)
                 this.disconnect(client)
                 this.pendingClients.delete(client.connection)
             }
@@ -587,6 +593,19 @@ class Instance extends EventEmitter {
                 client.connection.send(buffer, true)
                 client.saveSnapshot(snapshot, this.protocols, this.tick)
             }
+
+            // Release snapshot arrays back to pool (server does not retain them)
+            this._releaseArray(snapshot.engineMessages)
+            this._releaseArray(snapshot.localEvents)
+            this._releaseArray(snapshot.messages)
+            this._releaseArray(snapshot.jsons)
+            this._releaseArray(snapshot.createEntities)
+            this._releaseArray(snapshot.deleteEntities)
+            if (snapshot.updateEntities) {
+                this._releaseArray(snapshot.updateEntities.full)
+                this._releaseArray(snapshot.updateEntities.partial)
+                this._releaseArray(snapshot.updateEntities.optimized)
+            }
         }
 
         if (!this._processCommandsBeforeSnapshot && typeof processServerCommands === 'function') {
@@ -634,11 +653,6 @@ class Instance extends EventEmitter {
 
         var pingKey = (tick % this.config.PING_PONG_TICK_INTERVAL === 0) ? client.latencyRecord.generatePingKey() : -1
 
-        // Reuse snapshot arrays from a simple pool to reduce allocations
-        this._arrayPool = this._arrayPool || []
-        const acquireArray = () => (this._arrayPool.pop() || [])
-        const releaseArray = (arr) => { arr.length = 0; if (this._arrayPool.length < 64) this._arrayPool.push(arr) }
-
         var snapshot = {
             tick: tick,
             clientTick: client.lastProcessedClientTick,
@@ -648,16 +662,16 @@ class Instance extends EventEmitter {
             timestamp: timestamp,
             transferKey: client.transferKey,
 
-            engineMessages: acquireArray(),
-            localEvents: acquireArray(),
-            messages: acquireArray(),
-            jsons: acquireArray(),
-            createEntities: acquireArray(),
-            deleteEntities: acquireArray(),
+            engineMessages: this._acquireArray(),
+            localEvents: this._acquireArray(),
+            messages: this._acquireArray(),
+            jsons: this._acquireArray(),
+            createEntities: this._acquireArray(),
+            deleteEntities: this._acquireArray(),
             updateEntities: {
-                full: acquireArray(),
-                partial: acquireArray(),
-                optimized: acquireArray()
+                full: this._acquireArray(),
+                partial: this._acquireArray(),
+                optimized: this._acquireArray()
             }
         }
 
@@ -721,7 +735,6 @@ class Instance extends EventEmitter {
         }
 
         snapshot.localEvents = vision.events
-        // NOTE: Caller is responsible for releasing arrays after serialization if pooling is extended.
         return snapshot
     }
 }
