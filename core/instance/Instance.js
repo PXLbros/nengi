@@ -550,6 +550,8 @@ class Instance extends EventEmitter {
 
             var snapshot = this.createSnapshot(this.tick, client, spatialStructure, now)
             var bitBuffer = createSnapshotBuffer(snapshot, this.config)
+            // expose last snapshot buffer for testing/instrumentation (non-public API)
+            this.lastSnapshotBuffer = bitBuffer
             var buffer = bitBuffer.toBuffer()
 
             if (client.connection._nengiOpen === true) {
